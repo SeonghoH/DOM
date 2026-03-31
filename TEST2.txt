@@ -1,13 +1,33 @@
-﻿import base64
+﻿# ================================================================
+# 설계 자동화 대시보드 (Design Automation Dashboard)
+# ----------------------------------------------------------------
+# Rhino 3DM 파일을 불러와 IPython 환경(Jupyter/Colab)에서
+# 파라메트릭 컨트롤, 법규 검토, 수익성 분석, 3D 뷰어를
+# 하나의 HTML 인터페이스로 렌더링하는 스크립트입니다.
+# ================================================================
+
+# ---------------------------------------------------------------
+# 1. 라이브러리 임포트
+# ---------------------------------------------------------------
+import base64
 import requests
 from IPython.display import HTML, display
 
+# ---------------------------------------------------------------
+# 2. Rhino 3DM 파일 다운로드 및 Base64 인코딩
+#    (브라우저 내에서 바이너리 파일을 전달하기 위해 Base64 사용)
+# ---------------------------------------------------------------
 URL = "https://raw.githubusercontent.com/SeonghoH/DOM/c750c7a5ebbcaa667e1ce37dfb57c985b1af4bf9/test_1.3dm"
 response = requests.get(URL)
 
 if response.status_code == 200:
     data_64 = base64.b64encode(response.content).decode("utf-8")
 
+    # -----------------------------------------------------------
+    # 3. HTML 대시보드 템플릿 정의
+    #    아래 문자열 안에 CSS / HTML / JavaScript 가 모두 포함됩니다.
+    #    __DATA64__ 는 실행 시 실제 3DM 데이터로 치환됩니다.
+    # -----------------------------------------------------------
     RHINO_VIEWER_HTML = """
     <!DOCTYPE html>
     <html lang="en">
@@ -15,6 +35,10 @@ if response.status_code == 200:
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
+            /* ============================================================
+               CSS 1. 디자인 토큰 (색상 변수)
+               - 전체 UI에서 공통으로 사용하는 색상을 변수로 정의합니다.
+               ============================================================ */
             :root {
                 --bg: #ece8e0;
                 --card: #fffdf8;
@@ -44,6 +68,12 @@ if response.status_code == 200:
                 overflow: auto;
             }
 
+            /* ============================================================
+               CSS 2. 전체 레이아웃 (그리드 구조)
+               - app-container: 세 줄 그리드 (헤더 / 뷰어행 / 분석행)
+               - top-layout: 3D 뷰어 + 환경 패널 2열
+               - bottom-layout: 컨트롤 + 분석 카드 4열
+               ============================================================ */
             #app-container {
                 display: grid;
                 grid-template-rows: auto minmax(340px, 0.9fr) minmax(620px, 1.35fr);
@@ -58,6 +88,11 @@ if response.status_code == 200:
                 min-height: 96px;
             }
 
+            /* ============================================================
+               CSS 3. 헤더 패널 (hero-panel, meta-panel)
+               - 좌측: 프로젝트 제목 + 주요 지표 pills
+               - 우측: 워크플로우 메타 정보 카드
+               ============================================================ */
             .hero-panel,
             .meta-panel {
                 background: rgba(255, 253, 248, 0.92);
@@ -217,6 +252,10 @@ if response.status_code == 200:
                 display: contents;
             }
 
+            /* ============================================================
+               CSS 4. 분석 카드 (.sub-card, .mini-card)
+               - 각 분석 패널의 공통 카드 스타일 (배경, 테두리, 그림자)
+               ============================================================ */
             .sub-card {
                 background: var(--card);
                 padding: 12px;
@@ -314,6 +353,11 @@ if response.status_code == 200:
                 gap: 8px;
             }
 
+            /* ============================================================
+               CSS 5. 도넛 차트 컴포넌트
+               - CSS conic-gradient 로 퍼센트 게이지를 표현합니다.
+               - --pct 변수를 JS에서 동적으로 변경해 값을 업데이트합니다.
+               ============================================================ */
             .donut-chart {
                 --pct: 50;
                 --fill: #8f5b2d;
@@ -516,6 +560,11 @@ if response.status_code == 200:
                 margin: 8px 0 10px;
             }
 
+            /* ============================================================
+               CSS 6. 풍향 장미 (Wind Rose) 컴포넌트
+               - 4방위 색상으로 풍향을 표시하는 원형 차트입니다.
+               - rose-arrow 가 JS에서 rotate() 로 방향을 표시합니다.
+               ============================================================ */
             .rose-chart {
                 width: 74px;
                 height: 74px;
@@ -788,6 +837,11 @@ if response.status_code == 200:
                 }
             }
 
+            /* ============================================================
+               CSS 7. 패널 토글 버튼 (on/off 접기 기능)
+               - 각 패널 헤더 우측에 − / + 버튼을 표시합니다.
+               - .panel-collapsed 클래스가 붙으면 내용을 모두 숨깁니다.
+               ============================================================ */
             /* Panel toggle button */
             .panel-toggle-btn {
                 background: none;
@@ -1349,6 +1403,12 @@ if response.status_code == 200:
         <script src="https://cdn.jsdelivr.net/npm/rhino3dm@7.15.0/rhino3dm.min.js"></script>
 
         <script>
+            // ============================================================
+            // JS 1. 전역 변수 선언
+            //   - Three.js 씬/카메라/렌더러/컨트롤 객체
+            //   - 미리보기 씬 (pScene) 별도 관리
+            //   - raycaster: 마우스 클릭으로 3D 오브젝트 선택에 사용
+            // ============================================================
             const data64 = "__DATA64__";
             let scene, camera, renderer, controls, rhino, modelGroup, container;
             let pScene, pCamera, pRenderer, pGroup, pControls;
@@ -1361,6 +1421,15 @@ if response.status_code == 200:
                 faces: 0
             };
 
+            // ============================================================
+            // JS 2. 정적 데이터 상수 (규정, 프로파일, 레이아웃 기본값)
+            //   - regionRules      : 지역별 건폐율/용적률/높이 한도
+            //   - zoningProfiles   : 용도지역별 법규 기준
+            //   - koreanLawCatalog : 관련 법령 링크 및 시행일
+            //   - projectProfiles  : 용도별 효율/단가/수익 계수
+            //   - materialProfiles : 재료별 탄소 및 중량 계수
+            //   - panelLayoutDefaults: 패널 드래그 기본 위치/크기
+            // ============================================================
             const regionRules = {
                 seoul: { bcrMax: 60, farMax: 250, heightMax: 20, openingMax: 55, reviewBcr: 70, reviewFar: 280, reviewHeight: 24, reviewOpening: 70 },
                 busan: { bcrMax: 65, farMax: 280, heightMax: 28, openingMax: 60, reviewBcr: 75, reviewFar: 320, reviewHeight: 34, reviewOpening: 75 },
@@ -1439,6 +1508,14 @@ if response.status_code == 200:
                 retail: 0x5a8b68
             };
 
+            // ============================================================
+            // JS 3. 앱 상태 관리 (appState)
+            //   - selection  : 현재 선택된 오브젝트 ID
+            //   - objects    : Map<objectId, objectState> 전체 오브젝트 목록
+            //   - controls   : 파라메트릭 컨트롤 현재 값
+            //   - climate    : 선택된 도시의 기후 데이터
+            //   - floorStack : 층수/층고/세트백 설정
+            // ============================================================
             const appState = {
                 selection: {
                     objectId: null
@@ -1475,6 +1552,13 @@ if response.status_code == 200:
             let baselineScenario = null;
             let scenarioLog = [];
 
+            // ============================================================
+            // JS 4. 유틸리티 함수
+            //   - toLabel()          : snake_case → 표시용 문자열 변환
+            //   - readSavedLayout()  : localStorage 에서 패널 레이아웃 읽기
+            //   - writePanelLayout() : 패널 위치/크기 localStorage 저장
+            //   - bringPanelToFront(): 클릭한 패널을 z-index 최상위로
+            // ============================================================
             function toLabel(value) {
                 const words = value.split("_");
                 return words
@@ -1506,6 +1590,13 @@ if response.status_code == 200:
                 panel.style.zIndex = String(panelZCounter);
             }
 
+            // ============================================================
+            // JS 5. 패널 드래그 & 레이아웃 관리
+            //   - initWorkspacePanels(): 패널에 드래그 핸들(grip) 추가,
+            //     저장된 위치/크기 복원, ResizeObserver 로 변경 감지
+            //   - initPanelToggles()  : 각 패널 헤더에 − / + 버튼 추가,
+            //     클릭 시 panel-collapsed 클래스로 내용 접기/펼치기
+            // ============================================================
             function initWorkspacePanels(workspaceId, panelIds) {
                 const workspace = document.getElementById(workspaceId);
                 const savedLayout = readSavedLayout();
@@ -1579,6 +1670,14 @@ if response.status_code == 200:
                 };
             }
 
+            // ============================================================
+            // JS 6. 오브젝트 선택 및 속성 변경
+            //   - selectedObjectState()    : 현재 선택된 오브젝트 상태 반환
+            //   - applySelectedProgram()   : 선택 오브젝트의 용도 변경
+            //   - applySelectedMaterial()  : 선택 오브젝트의 재료 변경
+            //   - applyMeshAppearance()    : 용도/재료/리스크에 따라 색상 적용
+            //   - programAreaTotals()      : 용도별 면적 합계 계산
+            // ============================================================
             function selectedObjectState() {
                 if (appState.selection.objectId === null) return null;
                 return appState.objects.get(appState.selection.objectId) || null;
@@ -1652,6 +1751,14 @@ if response.status_code == 200:
                 return { office, residential, retail, total: office + residential + retail };
             }
 
+            // ============================================================
+            // JS 7. 시나리오 비교 및 옵션 랭킹
+            //   - saveScenarioSnapshot() : 현재 상태를 스냅샷으로 저장 (최대 3개)
+            //   - renderScenarioLog()    : 저장된 스냅샷 목록 렌더링
+            //   - updateOptionRanking()  : 점수/ROI/탄소/법규 종합 점수로 순위 정렬
+            //   - captureBaseline()      : 현재 상태를 베이스라인으로 저장
+            //   - updateScenarioCompare(): 베이스라인 대비 현재 변화량 표시
+            // ============================================================
             function saveScenarioSnapshot() {
                 const shape = document.getElementById("shape-input").value;
                 const regionKey = document.getElementById("region-input").value;
@@ -1788,6 +1895,12 @@ if response.status_code == 200:
                 roseMeta.textContent = `${selected.orientation} facade with ${climate.city} wind ${climate.wind} m/s.`;
             }
 
+            // ============================================================
+            // JS 8. 로컬 지오메트리 패널 (선택된 오브젝트 세부 조정)
+            //   - updateLocalGeometryPanel() : 선택 오브젝트의 로컬 컨트롤 표시
+            //   - applyLocalGeometryControls(): Depth / Offset / OpenRatio 적용
+            //   - toggleLocalHeightLock()    : 높이 잠금 on/off
+            // ============================================================
             function updateLocalGeometryPanel(meta) {
                 const noteEl = document.getElementById("local-geometry-note");
                 if (!meta) {
@@ -1836,6 +1949,13 @@ if response.status_code == 200:
                 updateParametricPanel();
             }
 
+            // ============================================================
+            // JS 9. 플로어 스택 패널 (층수/층고 계산)
+            //   - 포디엄 층 = 전체 층수의 35% (반올림)
+            //   - 타워 층 = 전체 - 포디엄
+            //   - 총 높이 = 층수 × 층고
+            //   - 35m 이하 → Stable / 50m 이하 → Review / 초과 → Heavy
+            // ============================================================
             function updateFloorStackPanel() {
                 const floorCount = Math.max(1, Number(document.getElementById("floor-count-input").value || 8));
                 const floorToFloor = Math.max(2.6, Number(document.getElementById("floor-height-input").value || 3.9));
@@ -1869,6 +1989,10 @@ if response.status_code == 200:
                 }
             }
 
+            // ============================================================
+            // JS 10. 차트 업데이트 헬퍼
+            //   - setDonut(): CSS 변수 --pct / --fill 을 변경해 도넛 차트 갱신
+            // ============================================================
             function setDonut(chartId, valueId, pct, label, fill) {
                 const chart = document.getElementById(chartId);
                 const valueEl = document.getElementById(valueId);
@@ -1878,6 +2002,12 @@ if response.status_code == 200:
                 valueEl.textContent = label;
             }
 
+            // ============================================================
+            // JS 11. 재료 / 탄소 패널
+            //   - 오브젝트가 있으면 각 오브젝트 재료별 탄소/중량 합산
+            //   - 없으면 전역 파라메트릭 값으로 추정치 계산
+            //   - 320,000 kgCO2e 이하 → Light / 460,000 이하 → Moderate / 초과 → Heavy
+            // ============================================================
             function updateMaterialCarbonPanel(widthValue, thicknessValue, openRatio) {
                 const selected = selectedObjectState();
                 const materialKey = selected ? selected.material : document.getElementById("material-input").value;
@@ -1924,6 +2054,11 @@ if response.status_code == 200:
                 }
             }
 
+            // ============================================================
+            // JS 12. 제약 맵 (Constraint Map)
+            //   - 건폐율 / 용적률 / 높이를 법규 한도 대비 비율로 시각화
+            //   - 각 오브젝트에 constraintRisk(high/medium/low) 태그 부여 → 색상 반영
+            // ============================================================
             function updateConstraintMap(bcr, far, height, region) {
                 const bcrRatio = Math.min(100, (Number(bcr) / region.bcrMax) * 100);
                 const farRatio = Math.min(100, (Number(far) / region.farMax) * 100);
@@ -1977,6 +2112,11 @@ if response.status_code == 200:
                 }
             }
 
+            // ============================================================
+            // JS 13. 리포트 패널 / 출력
+            //   - updateReportPanel() : 법규 통과 + ROI 기준으로 출력 가능 여부 판단
+            //   - exportDesignReport(): window.print() 으로 브라우저 인쇄/PDF 저장
+            // ============================================================
             function exportDesignReport() {
                 window.print();
             }
@@ -2032,6 +2172,13 @@ if response.status_code == 200:
                 }
             }
 
+            // ============================================================
+            // JS 14. 기후 / 날씨 (Mock 데이터)
+            //   - fetchWeather()         : 도시 선택 시 Mock 기후값 적용
+            //   - updateObjectHeatmap()  : 방위별 태양 부하를 오브젝트 색상으로 표시
+            //   - updateSelectedClimatePanel(): 선택 오브젝트 방위에 맞는 기후값 표시
+            //   ※ 현재는 실제 API 대신 Mock 데이터를 사용합니다.
+            // ============================================================
             async function fetchWeather(city, btn) {
                 document.querySelectorAll(".city-btn").forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
@@ -2074,6 +2221,11 @@ if response.status_code == 200:
                 });
             }
 
+            // ============================================================
+            // JS 15. 파라메트릭 지오메트리 컨트롤 읽기
+            //   - readGeometryControls(): 슬라이더/셀렉트 값을 읽어 단위 변환 후 반환
+            //   - updatePreview()       : 미리보기 씬에 그리드 형태 3D 프리뷰 업데이트
+            // ============================================================
             function readGeometryControls(updateLabels = true) {
                 const shape = document.getElementById("shape-input").value;
                 const thicknessMm = parseInt(document.getElementById("thick-input").value, 10);
@@ -2164,6 +2316,14 @@ if response.status_code == 200:
                 }
             }
 
+            // ============================================================
+            // JS 16. 법규 검토 및 수익성 분석
+            //   - buildComplianceContext() : 현재 파라메터로 건폐율/용적률/높이 계산
+            //   - evaluateSeoulCompliance(): 서울 기준 법규 항목별 Pass/Review/Fail 판정
+            //   - evaluateProxyCompliance(): 부산/제주 등 지역 프록시 법규 판정
+            //   - updateParametricPanel()  : 모든 패널을 한 번에 최신값으로 갱신
+            //   - updateProfitabilityPanel(): GFA/NSA/비용/수익/ROI 계산 및 표시
+            // ============================================================
             function buildComplianceContext(shape, thicknessValue, widthValue, openRatio, regionKey, projectType, taperValue, rotationValue, bayCount, gridSnap) {
                 const zoningKey = document.getElementById("zoning-input").value;
                 const siteArea = Math.max(200, Number(document.getElementById("site-area-input").value || 1200));
@@ -2495,6 +2655,18 @@ if response.status_code == 200:
                 return Number(roi);
             }
 
+            // ============================================================
+            // JS 17. 진입점 (Entry Point)
+            //   - rhino3dm 라이브러리 로딩 완료 후 아래 순서로 초기화:
+            //     1) init()                  : Three.js 씬, 카메라, 렌더러 설정
+            //     2) displayModel(data64)    : 3DM 파일 파싱 및 메쉬 추가
+            //     3) initPreview()           : 미리보기 씬 초기화
+            //     4) updateLocalGeometryPanel(): 선택 전 초기 상태 표시
+            //     5) updateFloorStackPanel() : 플로어 스택 초기값 계산
+            //     6) updateParametricPanel() : 모든 분석 패널 최초 계산
+            //     7) fetchWeather("Seoul")   : 기본 도시(서울) 기후 로드
+            //     8) initPanelToggles()      : 패널 온/오프 버튼 생성
+            // ============================================================
             rhino3dm().then(async res => {
                 rhino = res;
                 init();
@@ -2530,6 +2702,16 @@ if response.status_code == 200:
                 updatePreview();
             }
 
+            // ============================================================
+            // JS 18. Three.js 씬 초기화 및 3DM 모델 로딩
+            //   - init()         : 씬/카메라/렌더러/OrbitControls/raycaster 생성
+            //   - initPreview()  : 미리보기 전용 소형 씬 별도 생성
+            //   - displayModel() : Base64 → 바이너리 → Rhino3dm 파싱 → Three.js 메쉬
+            //   - addMesh()      : 단일 메쉬를 씬에 추가하고 appState.objects 에 등록
+            //   - setView()      : perspective / top / front / right 뷰 전환
+            //   - onPointerDown(): 마우스 클릭 → raycaster → 오브젝트 선택
+            //   - animate()      : requestAnimationFrame 렌더 루프
+            // ============================================================
             function init() {
                 container = document.getElementById("viewer-container");
                 scene = new THREE.Scene();
@@ -2967,8 +3149,15 @@ if response.status_code == 200:
     </body>
     </html>
     """
+    # -----------------------------------------------------------
+    # 4. __DATA64__ 플레이스홀더를 실제 3DM Base64 데이터로 치환
+    # -----------------------------------------------------------
     RHINO_VIEWER_HTML = RHINO_VIEWER_HTML.replace("__DATA64__", data_64)
 
+    # -----------------------------------------------------------
+    # 5. IPython 셀에 HTML 대시보드 렌더링
+    # -----------------------------------------------------------
     display(HTML(RHINO_VIEWER_HTML))
 else:
+    # 파일 다운로드 실패 시 상태 코드 출력
     print(f"Download failed: {response.status_code}")
