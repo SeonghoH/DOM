@@ -1,0 +1,2907 @@
+﻿import base64
+import requests
+from IPython.display import HTML, display
+
+URL = "https://raw.githubusercontent.com/SeonghoH/DOM/c750c7a5ebbcaa667e1ce37dfb57c985b1af4bf9/test_1.3dm"
+response = requests.get(URL)
+
+if response.status_code == 200:
+    data_64 = base64.b64encode(response.content).decode("utf-8")
+
+    RHINO_VIEWER_HTML = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            :root {
+                --bg: #ece8e0;
+                --card: #fffdf8;
+                --line: #d6d0c3;
+                --ink: #252019;
+                --muted: #6f665a;
+                --accent: #8f5b2d;
+                --ok: #18794e;
+                --warn: #a86100;
+                --bad: #b42318;
+            }
+
+            * { box-sizing: border-box; }
+
+            html, body {
+                height: 100%;
+            }
+
+            body {
+                margin: 0;
+                padding: 10px;
+                font-family: "Segoe UI", sans-serif;
+                color: var(--ink);
+                background:
+                    radial-gradient(circle at top left, #f8f3e8 0%, transparent 34%),
+                    linear-gradient(135deg, #ece6db 0%, #f7f3ec 50%, #eae3d8 100%);
+                overflow: auto;
+            }
+
+            #app-container {
+                display: grid;
+                grid-template-rows: auto minmax(340px, 0.9fr) minmax(620px, 1.35fr);
+                min-height: calc(100vh - 20px);
+                gap: 10px;
+            }
+
+            #app-header {
+                display: grid;
+                grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+                gap: 10px;
+                min-height: 96px;
+            }
+
+            .hero-panel,
+            .meta-panel {
+                background: rgba(255, 253, 248, 0.92);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                box-shadow: 0 12px 30px rgba(56, 43, 29, 0.08);
+                animation: riseIn 0.5s ease both;
+            }
+
+            .hero-panel {
+                padding: 16px 18px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .hero-panel::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background:
+                    linear-gradient(90deg, rgba(143, 91, 45, 0.08) 1px, transparent 1px),
+                    linear-gradient(rgba(143, 91, 45, 0.08) 1px, transparent 1px);
+                background-size: 28px 28px;
+                opacity: 0.35;
+                pointer-events: none;
+            }
+
+            .hero-copy,
+            .hero-metrics,
+            .meta-panel {
+                position: relative;
+                z-index: 1;
+            }
+
+            .hero-kicker,
+            .panel-kicker {
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 10px;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                color: var(--accent);
+            }
+
+            .hero-title {
+                margin: 6px 0 8px;
+                font-size: 30px;
+                line-height: 1;
+                letter-spacing: -0.02em;
+            }
+
+            .hero-subtitle {
+                margin: 0;
+                max-width: 760px;
+                color: var(--muted);
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
+            .hero-metrics {
+                display: flex;
+                gap: 8px;
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+
+            .metric-pill,
+            .status-pill {
+                border-radius: 999px;
+                border: 1px solid #e1d8ca;
+                background: rgba(255, 251, 243, 0.85);
+                padding: 8px 10px;
+                min-width: 108px;
+            }
+
+            .metric-pill span,
+            .status-pill span {
+                display: block;
+                font-size: 9px;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                margin-bottom: 3px;
+            }
+
+            .metric-pill strong,
+            .status-pill strong {
+                font-size: 12px;
+            }
+
+            .meta-panel {
+                padding: 14px;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            #top-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 2.2fr) minmax(320px, 0.95fr);
+                gap: 10px;
+                min-height: 0;
+                min-height: 340px;
+                overflow: visible;
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                background: rgba(255, 252, 246, 0.5);
+                padding: 10px;
+            }
+
+            #viewer-container {
+                position: relative;
+                background: #faf8f2;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 10px 26px rgba(56, 43, 29, 0.08);
+                animation: riseIn 0.6s ease both;
+                min-width: 0;
+                min-height: 340px;
+                height: 100%;
+                align-self: stretch;
+            }
+
+            #env-panel {
+                background: var(--card);
+                padding: 15px;
+                overflow: auto;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                animation: riseIn 0.65s ease both;
+                min-width: 0;
+                min-height: 340px;
+                align-self: start;
+                resize: vertical;
+            }
+
+            #bottom-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 0.95fr);
+                grid-template-rows: repeat(5, minmax(180px, auto));
+                gap: 10px;
+                min-height: 0;
+                min-height: 760px;
+                overflow: visible;
+                align-items: start;
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                background: rgba(255, 252, 246, 0.5);
+                padding: 10px;
+            }
+
+            #control-panel {
+                display: contents;
+            }
+
+            #right-analysis-layout {
+                display: contents;
+            }
+
+            .sub-card {
+                background: var(--card);
+                padding: 12px;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                overflow: auto;
+                animation: riseIn 0.7s ease both;
+                min-width: 0;
+                min-height: 180px;
+                align-self: start;
+                resize: vertical;
+                box-shadow: 0 10px 24px rgba(56, 43, 29, 0.08);
+            }
+
+            #geometry-card {
+                grid-column: 1 / span 2;
+                grid-row: 1;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 180px;
+                gap: 15px;
+                min-height: 290px;
+            }
+
+            #decision-card {
+                grid-column: 1 / span 2;
+                grid-row: 2;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            #strategy-card {
+                grid-column: 1 / span 2;
+                grid-row: 3 / span 2;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            #selected-card { grid-column: 3; grid-row: 1; }
+            #climate-card { grid-column: 4; grid-row: 1; }
+            #mesh-card { grid-column: 3; grid-row: 2; }
+            #compliance-summary-card { grid-column: 4; grid-row: 2; }
+            #local-geometry-card { grid-column: 3; grid-row: 3; }
+            #floor-stack-card { grid-column: 4; grid-row: 3; }
+            #parametric-state-card { grid-column: 3; grid-row: 4; }
+            #scenario-card { grid-column: 4; grid-row: 4; }
+            #constraint-card { grid-column: 3; grid-row: 5; }
+            #ranking-card { grid-column: 4; grid-row: 5; }
+
+            .geometry-control-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 2px 16px;
+            }
+
+            .geometry-column {
+                min-width: 0;
+            }
+
+            .control-subtitle {
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 9px;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                color: var(--muted);
+                margin-bottom: 8px;
+            }
+
+            .geometry-note {
+                margin-top: 8px;
+            }
+
+            .mini-card {
+                background: #fcfaf5;
+                border: 1px solid #e8e0d1;
+                border-radius: 10px;
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .panel-body {
+                display: grid;
+                grid-template-columns: 108px minmax(0, 1fr);
+                gap: 12px;
+                align-items: start;
+            }
+
+            .chart-stack {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .donut-chart {
+                --pct: 50;
+                --fill: #8f5b2d;
+                width: 92px;
+                height: 92px;
+                border-radius: 50%;
+                position: relative;
+                background:
+                    conic-gradient(var(--fill) calc(var(--pct) * 1%), #e8dfd1 0);
+                display: grid;
+                place-items: center;
+            }
+
+            .donut-chart::after {
+                content: "";
+                width: 58px;
+                height: 58px;
+                border-radius: 50%;
+                background: #fffdf8;
+                border: 1px solid #ece3d6;
+            }
+
+            .donut-value {
+                position: absolute;
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 13px;
+                font-weight: 700;
+                z-index: 1;
+                color: var(--ink);
+            }
+
+            .donut-label {
+                font-size: 9px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--muted);
+                text-align: center;
+            }
+
+            .metrics-column {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .metric-note {
+                margin-top: 8px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                background: #f5efe5;
+                color: var(--muted);
+                font-size: 10px;
+                line-height: 1.4;
+            }
+
+            .section-title {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .section-title h2 {
+                margin-bottom: 0;
+                flex: 1;
+            }
+
+            .section-tag {
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 9px;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                color: var(--muted);
+            }
+
+            .data-block {
+                padding: 10px 12px;
+                margin-bottom: 10px;
+                border-radius: 10px;
+                background: linear-gradient(180deg, #fffdf8 0%, #f7f1e7 100%);
+                border: 1px solid #e7dece;
+            }
+
+            .data-block:last-child {
+                margin-bottom: 0;
+            }
+
+            .data-block-title {
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 9px;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                color: var(--accent);
+                margin-bottom: 6px;
+            }
+
+            .viewer-overlay {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                z-index: 11;
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                max-width: 360px;
+            }
+
+            .viewer-chip {
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: rgba(255, 252, 244, 0.88);
+                border: 1px solid #dfd5c6;
+                font-size: 10px;
+                color: var(--muted);
+            }
+
+            .viewer-chip strong {
+                color: var(--ink);
+            }
+
+            .compare-button {
+                width: 100%;
+                margin-top: 8px;
+                background: linear-gradient(135deg, #8f5b2d 0%, #6f8e75 100%);
+                color: #fff;
+                border: 0;
+            }
+
+            .snapshot-list {
+                margin-top: 10px;
+                display: grid;
+                gap: 8px;
+            }
+
+            .snapshot-item {
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid #e5dac9;
+                background: #faf6ef;
+                font-size: 10px;
+                color: var(--muted);
+            }
+
+            .snapshot-item strong {
+                color: var(--ink);
+                display: block;
+                margin-bottom: 4px;
+            }
+
+            .constraint-bar {
+                height: 8px;
+                border-radius: 999px;
+                background: #e8e0d2;
+                overflow: hidden;
+                margin-top: 6px;
+            }
+
+            .constraint-fill {
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #5f9c74 0%, #f0b84b 65%, #c44c3b 100%);
+            }
+
+            .ranking-item {
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid #e5dac9;
+                background: #faf6ef;
+                font-size: 10px;
+                color: var(--muted);
+                margin-top: 8px;
+            }
+
+            .ranking-item strong {
+                display: block;
+                color: var(--ink);
+                margin-bottom: 4px;
+            }
+
+            .ranking-bar {
+                height: 8px;
+                margin-top: 6px;
+                border-radius: 999px;
+                background: #e6ddcf;
+                overflow: hidden;
+            }
+
+            .ranking-fill {
+                height: 100%;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #5f9c74 0%, #8f5b2d 100%);
+            }
+
+            .rose-wrap {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 8px 0 10px;
+            }
+
+            .rose-chart {
+                width: 74px;
+                height: 74px;
+                border-radius: 50%;
+                border: 1px solid #dfd5c6;
+                position: relative;
+                background:
+                    radial-gradient(circle at center, #fffdf8 0 18px, transparent 18px),
+                    conic-gradient(
+                        #c44c3b 0deg 90deg,
+                        #e0aa3e 90deg 180deg,
+                        #5f9c74 180deg 270deg,
+                        #4f6c8c 270deg 360deg
+                    );
+            }
+
+            .rose-arrow {
+                position: absolute;
+                width: 2px;
+                height: 26px;
+                background: #1f1c18;
+                left: 35px;
+                top: 11px;
+                transform-origin: bottom center;
+                transition: transform 0.35s ease;
+            }
+
+            .rose-meta {
+                font-size: 10px;
+                color: var(--muted);
+                line-height: 1.4;
+            }
+
+            canvas {
+                display: block;
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            #ui {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 20;
+                display: flex;
+                gap: 6px;
+            }
+
+            button {
+                padding: 6px 12px;
+                cursor: pointer;
+                background: rgba(255, 255, 255, 0.94);
+                border: 1px solid #bbb;
+                border-radius: 6px;
+                font-size: 11px;
+            }
+
+            button:hover { background: #fff; }
+
+            h2 {
+                margin: 0 0 10px 0;
+                font-size: 13px;
+                color: #222;
+                border-bottom: 2px solid #3f8f68;
+                padding-bottom: 5px;
+            }
+
+            .control-group {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 8px;
+                min-width: 0;
+            }
+
+            .control-group label {
+                min-width: 68px;
+                font-size: 10px;
+                font-weight: 700;
+                flex-shrink: 0;
+            }
+
+            select, input[type=range], input[type=number] {
+                flex: 1;
+                height: 20px;
+                font-size: 10px;
+                min-width: 0;
+            }
+
+            input[type=number] {
+                padding: 0 6px;
+                border: 1px solid #d9d1c4;
+                border-radius: 4px;
+                background: #fffdf8;
+            }
+
+            .value-display {
+                min-width: 34px;
+                text-align: right;
+                font-family: Consolas, monospace;
+                font-size: 10px;
+                flex-shrink: 0;
+            }
+
+            .mix-control {
+                display: grid;
+                grid-template-columns: 72px minmax(0, 1fr) 40px;
+                gap: 8px;
+                align-items: center;
+                min-width: 0;
+            }
+
+            .mix-control label {
+                min-width: 0;
+            }
+
+            .mix-control input[type="range"] {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .mix-control .value-display {
+                min-width: 40px;
+            }
+
+            .panel-grip {
+                position: sticky;
+                top: -12px;
+                margin: -12px -12px 10px;
+                padding: 7px 12px;
+                border-bottom: 1px solid #ece2d5;
+                background: rgba(252, 250, 245, 0.92);
+                cursor: move;
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 9px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--muted);
+                backdrop-filter: blur(8px);
+                z-index: 2;
+            }
+
+            #preview-container {
+                width: 160px;
+                height: 160px;
+                background: #eee;
+                border-radius: 6px;
+                overflow: hidden;
+                border: 1px solid #ddd;
+                flex-shrink: 0;
+            }
+
+            #city-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 4px;
+                margin-top: 5px;
+            }
+
+            .city-btn {
+                padding: 4px;
+                font-size: 9px;
+                border: 1px solid #e8e2d7;
+                background: #f8f5ef;
+                cursor: pointer;
+                text-align: center;
+                border-radius: 4px;
+            }
+
+            .city-btn.active {
+                background: #4a7aaf;
+                color: white;
+                border-color: #4a7aaf;
+            }
+
+            #wind-compass {
+                width: 60px;
+                height: 60px;
+                border: 2px solid #ddd;
+                border-radius: 50%;
+                position: relative;
+                margin: 5px auto;
+            }
+
+            #wind-arrow {
+                width: 3px;
+                height: 30px;
+                background: #cf5a3b;
+                position: absolute;
+                left: 28px;
+                top: 0;
+                transform-origin: bottom center;
+                transition: transform 0.6s ease;
+            }
+
+            .analysis-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 11px;
+                padding: 4px 0;
+                border-bottom: 1px solid #efe8dc;
+            }
+
+            .status-ok { color: var(--ok); font-weight: 700; }
+            .status-warn { color: var(--warn); font-weight: 700; }
+            .status-bad { color: var(--bad); font-weight: 700; }
+
+            #thermal-viz {
+                width: 100%;
+                height: 80px;
+                background: linear-gradient(90deg, #2f81c7, #edc342, #cf5a3b);
+                margin-top: 5px;
+                border-radius: 5px;
+            }
+
+            .small-note {
+                font-size: 9px;
+                color: var(--muted);
+                margin-top: 6px;
+            }
+
+            .law-links {
+                display: grid;
+                gap: 3px;
+                margin-top: 6px;
+                font-size: 9px;
+                color: var(--muted);
+            }
+
+            .law-links a {
+                color: #6b5b46;
+                text-decoration: none;
+                border-bottom: 1px dotted #b8a78f;
+                width: fit-content;
+            }
+
+            #loading {
+                position: absolute;
+                top: 45px;
+                left: 10px;
+                z-index: 10;
+                background: rgba(255, 253, 248, 0.85);
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+
+            #pick-hint {
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                z-index: 10;
+                background: rgba(255, 253, 248, 0.85);
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 10px;
+                color: var(--muted);
+            }
+
+            @keyframes riseIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(14px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app-container">
+            <div id="app-header">
+                <div class="hero-panel">
+                    <div class="hero-copy">
+                        <div class="hero-kicker">Massing Intelligence Template</div>
+                        <h1 class="hero-title">NEXT-Style Design Dashboard</h1>
+                        <p class="hero-subtitle">
+                            A decision-support interface for optioneering, regulation review, and early-stage value testing.
+                            The layout prioritises comparison, immediate feedback, and transparent assumptions.
+                        </p>
+                    </div>
+                    <div class="hero-metrics">
+                        <div class="metric-pill"><span>Region</span><strong id="meta-region">Seoul Core</strong></div>
+                        <div class="metric-pill"><span>Program</span><strong id="meta-project">Office</strong></div>
+                        <div class="metric-pill"><span>Shape</span><strong id="meta-shape">Box</strong></div>
+                        <div class="status-pill"><span>Facade Score</span><strong id="meta-score">74</strong></div>
+                    </div>
+                </div>
+
+                <div class="meta-panel">
+                    <div class="metric-pill"><span>Workflow</span><strong>Optioneering</strong></div>
+                    <div class="metric-pill"><span>Review Mode</span><strong>Early Stage</strong></div>
+                    <div class="metric-pill"><span>Feedback Loop</span><strong>Live Parametric</strong></div>
+                    <div class="metric-pill"><span>Decision Basis</span><strong>Rules + Finance</strong></div>
+                </div>
+            </div>
+
+            <div id="top-layout">
+                <div id="viewer-container">
+                    <div id="ui">
+                        <button onclick="setView('perspective')">Perspective</button>
+                        <button onclick="setView('top')">Top</button>
+                        <button onclick="setView('front')">Front</button>
+                        <button onclick="setView('right')">Right</button>
+                    </div>
+                    <div id="loading">Loading model...</div>
+                    <div id="pick-hint">Click a mesh to inspect object details.</div>
+                    <div class="viewer-overlay">
+                        <div class="viewer-chip"><strong>Live review</strong> geometry inspection active</div>
+                        <div class="viewer-chip"><strong>Decision axis</strong> compliance + profitability</div>
+                    </div>
+                </div>
+
+                <div id="env-panel">
+                    <div class="section-title">
+                        <h2>Environmental Summary</h2>
+                        <span class="section-tag">Context Feed</span>
+                    </div>
+
+                    <div class="data-block">
+                        <div class="data-block-title">Climate Snapshot</div>
+                        <div class="analysis-row"><span>Solar Exposure</span><span id="solar-val">5.2 hr/day</span></div>
+                        <div class="analysis-row"><span>Carbon Output</span><span id="carbon-val">1240 kg/yr</span></div>
+                        <div class="analysis-row"><span>Shading Ratio</span><span class="status-ok" id="shade-val">25.4%</span></div>
+                    </div>
+
+                    <div class="data-block">
+                        <div class="data-block-title">Thermal Mass Direction</div>
+                        <div id="thermal-viz"></div>
+                        <div class="small-note">Gradient indicates directional heat-load tendency for facade surfaces.</div>
+                    </div>
+
+                    <div class="data-block">
+                        <div class="data-block-title">Design Intent</div>
+                        <div class="small-note">
+                            Use this rail as a fast environmental context layer rather than a final simulation report.
+                            The purpose is to compare options early, not to validate final engineering performance.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bottom-layout">
+                <div id="control-panel">
+                    <div id="geometry-card" class="sub-card">
+                        <div style="flex:1; display:flex; flex-direction:column;">
+                            <div class="section-title">
+                                <h2>Parametric Geometry Control</h2>
+                                <span class="section-tag">Authoring</span>
+                            </div>
+                            <div class="geometry-control-grid">
+                                <div class="geometry-column">
+                                    <div class="control-subtitle">Envelope</div>
+                                    <div class="control-group">
+                                        <label>Shape</label>
+                                        <select id="shape-input" onchange="updatePreview(); updateParametricPanel();">
+                                            <option value="box">Box</option>
+                                            <option value="diamond">Diamond</option>
+                                            <option value="cylinder">Cylinder</option>
+                                            <option value="sphere">Sphere</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Thickness</label>
+                                        <input type="range" id="thick-input" min="50" max="500" value="200" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="thick-val">200</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Width</label>
+                                        <input type="range" id="width-input" min="600" max="2400" value="1200" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="width-val">1200</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Open Ratio</label>
+                                        <input type="range" id="ratio-input" min="10" max="90" value="40" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="ratio-val">40</span>
+                                    </div>
+                                </div>
+                                <div class="geometry-column">
+                                    <div class="control-subtitle">Modulation</div>
+                                    <div class="control-group">
+                                        <label>Taper</label>
+                                        <input type="range" id="taper-input" min="0" max="35" value="12" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="taper-val">12</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Rotation</label>
+                                        <input type="range" id="rotation-input" min="-30" max="30" value="0" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="rotation-val">0</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Bay Count</label>
+                                        <input type="range" id="bay-input" min="2" max="12" value="6" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="bay-val">6</span>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Grid Snap</label>
+                                        <input type="range" id="snap-input" min="100" max="800" step="50" value="300" oninput="updatePreview(); updateParametricPanel();" />
+                                        <span class="value-display" id="snap-val">300</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="metric-note geometry-note">Use the global controls here for overall massing and facade order. Use the Local Geometry panel below for selected-object adjustments.</div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            <div id="preview-container"></div>
+                            <span class="small-note">3D Grid Preview</span>
+                        </div>
+                    </div>
+
+                    <div id="decision-card" class="sub-card">
+                        <div class="mini-card">
+                            <div class="section-title">
+                                <h2>Compliance Auto Check</h2>
+                                <span class="section-tag">Rules</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Region</label>
+                                <select id="region-input" onchange="updateParametricPanel();">
+                                    <option value="seoul">Seoul Core</option>
+                                    <option value="busan">Busan Coast</option>
+                                    <option value="jeju">Jeju Low Rise</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Zoning</label>
+                                <select id="zoning-input" onchange="updateParametricPanel();">
+                                    <option value="first_general_residential">1st Gen. Residential</option>
+                                    <option value="second_general_residential" selected>2nd Gen. Residential</option>
+                                    <option value="third_general_residential">3rd Gen. Residential</option>
+                                    <option value="quasi_residential">Quasi Residential</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Site Area</label>
+                                <input type="number" id="site-area-input" min="200" step="10" value="1200" oninput="updateParametricPanel();" />
+                                <span class="value-display">m2</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Road Width</label>
+                                <input type="number" id="road-width-input" min="2" step="0.5" value="8" oninput="updateParametricPanel();" />
+                                <span class="value-display">m</span>
+                            </div>
+                            <div class="control-group">
+                                <label>North Gap</label>
+                                <input type="number" id="north-setback-input" min="0" step="0.5" value="9" oninput="updateParametricPanel();" />
+                                <span class="value-display">m</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="chart-stack">
+                                    <div class="donut-chart" id="law-chart">
+                                        <span class="donut-value" id="law-chart-value">0%</span>
+                                    </div>
+                                    <div class="donut-label">rule load</div>
+                                </div>
+                                <div class="metrics-column">
+                                    <div class="analysis-row"><span>Coverage Ratio</span><span id="law-bcr">-</span></div>
+                                    <div class="analysis-row"><span>FAR Estimate</span><span id="law-far">-</span></div>
+                                    <div class="analysis-row"><span>Height Limit</span><span id="law-height">-</span></div>
+                                    <div class="analysis-row"><span>Daylight Setback</span><span id="law-daylight">-</span></div>
+                                    <div class="analysis-row"><span>Open Space / Road</span><span id="law-opening">-</span></div>
+                                    <div class="analysis-row"><span>Automation Scope</span><span id="law-scope">-</span></div>
+                                    <div class="analysis-row"><span>Effective Date</span><span id="law-effective">-</span></div>
+                                    <div class="analysis-row"><span>Final Result</span><span id="law-status">Pending</span></div>
+                                </div>
+                            </div>
+                            <div class="metric-note" id="law-note">
+                                Rule-based automatic check for early-stage massing decisions.
+                            </div>
+                            <div class="law-links" id="law-reference"></div>
+                        </div>
+
+                        <div class="mini-card">
+                            <div class="section-title">
+                                <h2>Profitability Analysis</h2>
+                                <span class="section-tag">Finance</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Project Type</label>
+                                <select id="project-type-input" onchange="updateParametricPanel();">
+                                    <option value="office">Office</option>
+                                    <option value="residential">Residential</option>
+                                    <option value="mixed_use">Mixed Use</option>
+                                </select>
+                            </div>
+                            <div class="panel-body">
+                                <div class="chart-stack">
+                                    <div class="donut-chart" id="profit-chart">
+                                        <span class="donut-value" id="profit-chart-value">0%</span>
+                                    </div>
+                                    <div class="donut-label">roi gauge</div>
+                                </div>
+                                <div class="metrics-column">
+                                    <div class="analysis-row"><span>Gross Floor Area</span><span id="profit-gfa">-</span></div>
+                                    <div class="analysis-row"><span>Sellable Area</span><span id="profit-nsa">-</span></div>
+                                    <div class="analysis-row"><span>Estimated Cost</span><span id="profit-cost">-</span></div>
+                                    <div class="analysis-row"><span>Expected Revenue</span><span id="profit-revenue">-</span></div>
+                                    <div class="analysis-row"><span>ROI</span><span id="profit-roi">-</span></div>
+                                    <div class="analysis-row"><span>Payback</span><span id="profit-payback">-</span></div>
+                                </div>
+                            </div>
+                            <div class="metric-note" id="profit-note">
+                                Placeholder business model driven by current parametric inputs.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="strategy-card" class="sub-card">
+                        <div class="mini-card">
+                            <div class="section-title">
+                                <h2>Material / Carbon</h2>
+                                <span class="section-tag">Embodied</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Material</label>
+                                <select id="material-input" onchange="updateParametricPanel();">
+                                    <option value="concrete">Concrete</option>
+                                    <option value="timber">Timber Hybrid</option>
+                                    <option value="steel">Steel Frame</option>
+                                </select>
+                            </div>
+                            <div class="panel-body">
+                                <div class="chart-stack">
+                                    <div class="donut-chart" id="carbon-chart">
+                                        <span class="donut-value" id="carbon-chart-value">0</span>
+                                    </div>
+                                    <div class="donut-label">carbon load</div>
+                                </div>
+                                <div class="metrics-column">
+                                    <div class="analysis-row"><span>Embodied Carbon</span><span id="carbon-embodied">-</span></div>
+                                    <div class="analysis-row"><span>Structure Weight</span><span id="carbon-weight">-</span></div>
+                                    <div class="analysis-row"><span>Carbon Status</span><span id="carbon-status">Pending</span></div>
+                                </div>
+                            </div>
+                            <div class="metric-note" id="carbon-note">Material system impact appears here.</div>
+                        </div>
+
+                        <div class="mini-card">
+                            <div class="section-title">
+                                <h2>Program Mix</h2>
+                                <span class="section-tag">Use</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="chart-stack">
+                                    <div class="donut-chart" id="mix-chart">
+                                        <span class="donut-value" id="mix-chart-value">100</span>
+                                    </div>
+                                    <div class="donut-label">mix sum</div>
+                                </div>
+                                <div class="metrics-column">
+                                    <div class="control-group mix-control">
+                                        <label>Office</label>
+                                        <input type="range" id="mix-office" min="0" max="100" value="50" oninput="updateParametricPanel();" />
+                                        <span class="value-display" id="mix-office-val">50</span>
+                                    </div>
+                                    <div class="control-group mix-control">
+                                        <label>Residential</label>
+                                        <input type="range" id="mix-residential" min="0" max="100" value="30" oninput="updateParametricPanel();" />
+                                        <span class="value-display" id="mix-residential-val">30</span>
+                                    </div>
+                                    <div class="control-group mix-control">
+                                        <label>Retail</label>
+                                        <input type="range" id="mix-retail" min="0" max="100" value="20" oninput="updateParametricPanel();" />
+                                        <span class="value-display" id="mix-retail-val">20</span>
+                                    </div>
+                                    <div class="analysis-row"><span>Total Mix</span><span id="mix-total">100%</span></div>
+                                </div>
+                            </div>
+                            <div class="metric-note" id="mix-note">Program distribution influences revenue and compliance assumptions.</div>
+                        </div>
+
+                        <div class="mini-card">
+                            <div class="section-title">
+                                <h2>Export Report</h2>
+                                <span class="section-tag">Output</span>
+                            </div>
+                            <div class="analysis-row"><span>Current Option</span><span id="report-option">Live</span></div>
+                            <div class="analysis-row"><span>Decision State</span><span id="report-state">Pending</span></div>
+                            <div class="analysis-row"><span>Export Mode</span><span>Print / PDF</span></div>
+                            <div class="metric-note" id="report-note">Generate a lightweight design report from the current state.</div>
+                            <button class="compare-button" type="button" onclick="exportDesignReport()">Export Current Report</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="right-analysis-layout">
+                    <div class="sub-card" id="selected-card">
+                        <div class="section-title">
+                            <h2>Selected Object</h2>
+                            <span class="section-tag">Inspect</span>
+                        </div>
+                        <div class="analysis-row"><span>Object Index</span><span id="obj-index">-</span></div>
+                        <div class="analysis-row"><span>Geometry Type</span><span id="obj-type">-</span></div>
+                        <div class="analysis-row"><span>Building Part</span><span id="obj-part">-</span></div>
+                        <div class="analysis-row"><span>Classified By</span><span id="obj-part-source">-</span></div>
+                        <div class="analysis-row"><span>Face Count</span><span id="obj-faces">-</span></div>
+                        <div class="analysis-row"><span>Vertex Count</span><span id="obj-verts">-</span></div>
+                        <div class="analysis-row"><span>Bounding Box</span><span id="obj-bbox">-</span></div>
+                        <div class="analysis-row"><span>Surface Area</span><span id="obj-area">-</span></div>
+                        <div class="analysis-row"><span>Program</span><span id="obj-program">-</span></div>
+                        <div class="analysis-row"><span>Material</span><span id="obj-material">-</span></div>
+                        <div class="control-group">
+                            <label>Assign Use</label>
+                            <select id="obj-program-input" onchange="applySelectedProgram();">
+                                <option value="office">Office</option>
+                                <option value="residential">Residential</option>
+                                <option value="retail">Retail</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Assign Mat.</label>
+                            <select id="obj-material-input" onchange="applySelectedMaterial();">
+                                <option value="concrete">Concrete</option>
+                                <option value="timber">Timber Hybrid</option>
+                                <option value="steel">Steel Frame</option>
+                            </select>
+                        </div>
+                        <div class="analysis-row"><span>Selected At</span><span id="obj-time">-</span></div>
+                    </div>
+
+                    <div class="sub-card" id="climate-card">
+                        <div class="section-title">
+                            <h2>Climate</h2>
+                            <span class="section-tag">Input</span>
+                        </div>
+                        <div id="weather-info" style="font-size:10px; margin-bottom:5px;">Select a city.</div>
+                        <div class="rose-wrap">
+                            <div class="rose-chart">
+                                <div class="rose-arrow" id="rose-arrow"></div>
+                            </div>
+                            <div class="rose-meta">
+                                <div>North / East / South / West</div>
+                                <div id="rose-meta">Wind vector waiting for city input.</div>
+                            </div>
+                        </div>
+                        <div class="analysis-row"><span>Selected Orientation</span><span id="climate-orientation">-</span></div>
+                        <div class="analysis-row"><span>Facade Solar Gain</span><span id="climate-gain">-</span></div>
+                        <div class="analysis-row"><span>Wind Exposure</span><span id="climate-wind">-</span></div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <div id="city-grid" style="flex:1;">
+                                <div class="city-btn" onclick="fetchWeather('Seoul', this)">Seoul</div>
+                                <div class="city-btn" onclick="fetchWeather('Busan', this)">Busan</div>
+                                <div class="city-btn" onclick="fetchWeather('Jeju', this)">Jeju</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div id="wind-compass"><div id="wind-arrow"></div></div>
+                                <div style="font-size:8px;">Wind</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sub-card" id="mesh-card">
+                        <div class="section-title">
+                            <h2>Mesh Load</h2>
+                            <span class="section-tag">Runtime</span>
+                        </div>
+                        <div class="analysis-row"><span>Total Render Meshes</span><span id="mesh-count">0</span></div>
+                        <div class="analysis-row"><span>Total Faces</span><span id="mesh-faces">0</span></div>
+                        <div class="analysis-row"><span>Estimated GPU Load</span><span id="mesh-load">Low</span></div>
+                        <div class="analysis-row"><span>Status</span><span id="mesh-status" class="status-ok">Stable</span></div>
+                    </div>
+
+                    <div class="sub-card" id="compliance-summary-card">
+                        <div class="section-title">
+                            <h2>Code Compliance</h2>
+                            <span class="section-tag">Summary</span>
+                        </div>
+                        <div class="analysis-row"><span>Coverage Ratio</span><span id="comp-envelope">-</span></div>
+                        <div class="analysis-row"><span>North Setback</span><span id="comp-open">-</span></div>
+                        <div class="analysis-row"><span>FAR Estimate</span><span id="comp-far">-</span></div>
+                        <div class="analysis-row"><span>Result</span><span id="comp-status">Pending</span></div>
+                    </div>
+
+                    <div class="sub-card" id="local-geometry-card">
+                        <div class="section-title">
+                            <h2>Local Geometry</h2>
+                            <span class="section-tag">Detail</span>
+                        </div>
+                        <div class="analysis-row"><span>Selected Part</span><span id="local-part-label">No selection</span></div>
+                        <div class="control-group">
+                            <label>Depth</label>
+                            <input type="range" id="local-depth-input" min="50" max="800" value="200" oninput="applyLocalGeometryControls();" />
+                            <span class="value-display" id="local-depth-val">200</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Offset</label>
+                            <input type="range" id="local-offset-input" min="-400" max="400" value="0" oninput="applyLocalGeometryControls();" />
+                            <span class="value-display" id="local-offset-val">0</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Open Ratio</label>
+                            <input type="range" id="local-open-input" min="0" max="90" value="40" oninput="applyLocalGeometryControls();" />
+                            <span class="value-display" id="local-open-val">40</span>
+                        </div>
+                        <div class="analysis-row"><span>Lock Height</span><span id="local-lock-label">Off</span></div>
+                        <button class="compare-button" type="button" onclick="toggleLocalHeightLock()">Toggle Height Lock</button>
+                        <div class="metric-note" id="local-geometry-note">Select a mesh to edit its local facade depth, offset, and open ratio.</div>
+                    </div>
+
+                    <div class="sub-card" id="floor-stack-card">
+                        <div class="section-title">
+                            <h2>Floor Stack</h2>
+                            <span class="section-tag">Levels</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Floors</label>
+                            <input type="number" id="floor-count-input" min="1" max="60" step="1" value="8" oninput="updateFloorStackPanel(); updateParametricPanel();" />
+                            <span class="value-display">lvl</span>
+                        </div>
+                        <div class="control-group">
+                            <label>F2F</label>
+                            <input type="number" id="floor-height-input" min="2.6" max="6" step="0.1" value="3.9" oninput="updateFloorStackPanel(); updateParametricPanel();" />
+                            <span class="value-display">m</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Setback</label>
+                            <input type="number" id="tower-setback-input" min="0" max="12" step="0.5" value="2.0" oninput="updateFloorStackPanel(); updateParametricPanel();" />
+                            <span class="value-display">m</span>
+                        </div>
+                        <div class="analysis-row"><span>Podium Floors</span><span id="floor-podium">3</span></div>
+                        <div class="analysis-row"><span>Tower Floors</span><span id="floor-tower">5</span></div>
+                        <div class="analysis-row"><span>Total Height</span><span id="floor-total-height">31.2 m</span></div>
+                        <div class="analysis-row"><span>Stack Status</span><span id="floor-stack-status" class="status-ok">Stable</span></div>
+                        <div class="metric-note" id="floor-stack-note">Use this panel to tune floor count, typical floor height, and upper-tower setback.</div>
+                    </div>
+
+                    <div class="sub-card" id="parametric-state-card">
+                        <div class="section-title">
+                            <h2>Parametric Panel</h2>
+                            <span class="section-tag">State</span>
+                        </div>
+                        <div class="analysis-row"><span>Active Shape</span><span id="para-shape">box</span></div>
+                        <div class="analysis-row"><span>Thickness</span><span id="para-thick">0.20 m</span></div>
+                        <div class="analysis-row"><span>Width</span><span id="para-width">1.20 m</span></div>
+                        <div class="analysis-row"><span>Open Ratio</span><span id="para-ratio">40%</span></div>
+                        <div class="analysis-row"><span>Taper</span><span id="para-taper">12%</span></div>
+                        <div class="analysis-row"><span>Rotation</span><span id="para-rotation">0 deg</span></div>
+                        <div class="analysis-row"><span>Bay Count</span><span id="para-bays">6</span></div>
+                        <div class="analysis-row"><span>Grid Snap</span><span id="para-snap">300 mm</span></div>
+                        <div class="analysis-row"><span>Facade Score</span><span id="para-score" class="status-ok">74</span></div>
+                    </div>
+
+                    <div class="sub-card" id="scenario-card">
+                        <div class="section-title">
+                            <h2>Scenario Compare</h2>
+                            <span class="section-tag">A/B</span>
+                        </div>
+                        <div class="analysis-row"><span>Baseline Shape</span><span id="compare-shape">-</span></div>
+                        <div class="analysis-row"><span>Score Delta</span><span id="compare-score">-</span></div>
+                        <div class="analysis-row"><span>ROI Delta</span><span id="compare-roi">-</span></div>
+                        <div class="analysis-row"><span>Compliance Shift</span><span id="compare-law">-</span></div>
+                        <div class="analysis-row"><span>Status</span><span id="compare-status">No baseline</span></div>
+                        <div class="metric-note" id="compare-note">Capture a baseline, then tune parameters to compare options.</div>
+                        <button class="compare-button" type="button" onclick="captureBaseline()">Set Current As Baseline</button>
+                        <button class="compare-button" type="button" onclick="saveScenarioSnapshot()">Save Scenario Snapshot</button>
+                        <div class="snapshot-list" id="scenario-log"></div>
+                    </div>
+
+                    <div class="sub-card" id="constraint-card">
+                        <div class="section-title">
+                            <h2>Constraint Map</h2>
+                            <span class="section-tag">Limits</span>
+                        </div>
+                        <div class="analysis-row"><span>Coverage</span><span id="constraint-bcr">-</span></div>
+                        <div class="constraint-bar"><div class="constraint-fill" id="constraint-bcr-fill" style="width:0%"></div></div>
+                        <div class="analysis-row"><span>FAR</span><span id="constraint-far">-</span></div>
+                        <div class="constraint-bar"><div class="constraint-fill" id="constraint-far-fill" style="width:0%"></div></div>
+                        <div class="analysis-row"><span>Height</span><span id="constraint-height">-</span></div>
+                        <div class="constraint-bar"><div class="constraint-fill" id="constraint-height-fill" style="width:0%"></div></div>
+                        <div class="metric-note" id="constraint-note">Visualises how close the current option is to assumed rule ceilings.</div>
+                    </div>
+
+                    <div class="sub-card" id="ranking-card">
+                        <div class="section-title">
+                            <h2>Option Ranking</h2>
+                            <span class="section-tag">Sort</span>
+                        </div>
+                        <div class="analysis-row"><span>Best Current Basis</span><span id="ranking-basis">Score</span></div>
+                        <div id="ranking-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/controls/OrbitControls.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/rhino3dm@7.15.0/rhino3dm.min.js"></script>
+
+        <script>
+            const data64 = "__DATA64__";
+            let scene, camera, renderer, controls, rhino, modelGroup, container;
+            let pScene, pCamera, pRenderer, pGroup, pControls;
+            let raycaster, mouse;
+            let selectedMesh = null;
+            const selectableMeshes = [];
+
+            const meshStats = {
+                renderMeshes: 0,
+                faces: 0
+            };
+
+            const regionRules = {
+                seoul: { bcrMax: 60, farMax: 250, heightMax: 20, openingMax: 55, reviewBcr: 70, reviewFar: 280, reviewHeight: 24, reviewOpening: 70 },
+                busan: { bcrMax: 65, farMax: 280, heightMax: 28, openingMax: 60, reviewBcr: 75, reviewFar: 320, reviewHeight: 34, reviewOpening: 75 },
+                jeju: { bcrMax: 45, farMax: 180, heightMax: 15, openingMax: 45, reviewBcr: 55, reviewFar: 210, reviewHeight: 18, reviewOpening: 55 }
+            };
+
+            const zoningProfiles = {
+                first_general_residential: { label: "1st General Residential", bcrMax: 60, farMax: 200 },
+                second_general_residential: { label: "2nd General Residential", bcrMax: 60, farMax: 250 },
+                third_general_residential: { label: "3rd General Residential", bcrMax: 50, farMax: 300 },
+                quasi_residential: { label: "Quasi Residential", bcrMax: 70, farMax: 500 }
+            };
+
+            const koreanLawCatalog = {
+                nationalBcr: {
+                    title: "National Land Planning Decree Art.84",
+                    effectiveDate: "2025-07-01",
+                    url: "https://www.law.go.kr/lsLawLinkInfo.do?lsJoLnkSeq=1000616245&chrClsCd=010202"
+                },
+                nationalFar: {
+                    title: "National Land Planning Decree Art.85",
+                    effectiveDate: "2026-03-24",
+                    url: "https://www.law.go.kr/lsLawLinkInfo.do?lsJoLnkSeq=1000616250&chrClsCd=010202"
+                },
+                seoulUrban: {
+                    title: "Seoul Urban Planning Ordinance",
+                    effectiveDate: "2026-01-05",
+                    url: "https://www.law.go.kr/joStmdInfoP.do?joBrNo=02&joNo=0055&lsiSeq=202115"
+                },
+                buildingOpenSpace: {
+                    title: "Building Act Enforcement Decree Art.80-2",
+                    effectiveDate: "2026-02-27",
+                    url: "https://www.law.go.kr/LSW/joStmdInfoP.do?joBrNo=02&joNo=0080&lsiSeq=179745"
+                },
+                daylight: {
+                    title: "Building Act Enforcement Decree / Seoul Building Ordinance",
+                    effectiveDate: "2026-02-27 / 2026-01-05",
+                    url: "https://www.law.go.kr/LSW/LsiJoLinkP.do?lsNm=%EA%B1%B4%EC%B6%95%EB%B2%95+%EC%8B%9C%ED%96%89%EB%A0%B9&paras=1"
+                }
+            };
+
+            const projectProfiles = {
+                office: { efficiency: 0.82, costPerM2: 1850, revenuePerM2: 3450, scoreWeight: 4.2 },
+                residential: { efficiency: 0.78, costPerM2: 1720, revenuePerM2: 2980, scoreWeight: 3.1 },
+                mixed_use: { efficiency: 0.8, costPerM2: 1980, revenuePerM2: 3720, scoreWeight: 4.8 }
+            };
+
+            const materialProfiles = {
+                concrete: { carbonFactor: 520, weightFactor: 1.0, label: "Concrete" },
+                timber: { carbonFactor: 180, weightFactor: 0.62, label: "Timber Hybrid" },
+                steel: { carbonFactor: 440, weightFactor: 0.84, label: "Steel Frame" }
+            };
+
+            const panelLayoutDefaults = {
+                "viewer-container": { left: 12, top: 12, width: 860, height: 420 },
+                "env-panel": { left: 888, top: 12, width: 376, height: 420 },
+                "geometry-card": { left: 12, top: 12, width: 520, height: 250 },
+                "decision-card": { left: 12, top: 278, width: 520, height: 340 },
+                "strategy-card": { left: 12, top: 634, width: 520, height: 320 },
+                "selected-card": { left: 548, top: 12, width: 350, height: 300 },
+                "climate-card": { left: 914, top: 12, width: 350, height: 260 },
+                "mesh-card": { left: 548, top: 328, width: 350, height: 180 },
+                "compliance-summary-card": { left: 914, top: 288, width: 350, height: 180 },
+                "parametric-state-card": { left: 548, top: 524, width: 350, height: 180 },
+                "scenario-card": { left: 914, top: 484, width: 350, height: 260 },
+                "constraint-card": { left: 548, top: 720, width: 350, height: 220 },
+                "ranking-card": { left: 914, top: 760, width: 350, height: 180 }
+            };
+
+            const panelStorageKey = "mvrdv-next-panel-layout-v1";
+            let panelZCounter = 50;
+
+            const programColors = {
+                office: 0x4f6c8c,
+                residential: 0xc77d4a,
+                retail: 0x5a8b68
+            };
+
+            const appState = {
+                selection: {
+                    objectId: null
+                },
+                objects: new Map(),
+                controls: {
+                    regionKey: "seoul",
+                    projectType: "office",
+                    materialKey: "concrete",
+                    zoningKey: "second_general_residential",
+                    siteArea: 1200,
+                    roadWidth: 8,
+                    northSetback: 9,
+                    taper: 12,
+                    rotation: 0,
+                    bayCount: 6,
+                    gridSnap: 300
+                },
+                derived: {},
+                climate: {
+                    city: "Seoul",
+                    temp: 18.5,
+                    wind: 3.2,
+                    rain: 0.0,
+                    deg: 45
+                },
+                floorStack: {
+                    floorCount: 8,
+                    floorToFloor: 3.9,
+                    towerSetback: 2.0
+                }
+            };
+
+            let baselineScenario = null;
+            let scenarioLog = [];
+
+            function toLabel(value) {
+                const words = value.split("_");
+                return words
+                    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : "")
+                    .join(" ");
+            }
+
+            function readSavedLayout() {
+                try {
+                    return JSON.parse(window.localStorage.getItem(panelStorageKey) || "{}");
+                } catch (error) {
+                    return {};
+                }
+            }
+
+            function writePanelLayout(panel) {
+                const layout = readSavedLayout();
+                layout[panel.id] = {
+                    left: panel.offsetLeft,
+                    top: panel.offsetTop,
+                    width: panel.offsetWidth,
+                    height: panel.offsetHeight
+                };
+                window.localStorage.setItem(panelStorageKey, JSON.stringify(layout));
+            }
+
+            function bringPanelToFront(panel) {
+                panelZCounter += 1;
+                panel.style.zIndex = String(panelZCounter);
+            }
+
+            function initWorkspacePanels(workspaceId, panelIds) {
+                const workspace = document.getElementById(workspaceId);
+                const savedLayout = readSavedLayout();
+
+                panelIds.forEach(panelId => {
+                    const panel = document.getElementById(panelId);
+                    if (!panel || panel.querySelector(":scope > .panel-grip")) return;
+
+                    const cfg = savedLayout[panel.id] || panelLayoutDefaults[panel.id];
+                    if (cfg) {
+                        panel.style.left = `${cfg.left}px`;
+                        panel.style.top = `${cfg.top}px`;
+                        panel.style.width = `${cfg.width}px`;
+                        panel.style.height = `${cfg.height}px`;
+                    }
+
+                    const grip = document.createElement("div");
+                    grip.className = "panel-grip";
+                    grip.textContent = panel.id ? panel.id.split("-").join(" ") : "panel";
+                    panel.prepend(grip);
+                    workspace.appendChild(panel);
+                    bringPanelToFront(panel);
+
+                    panel.addEventListener("pointerdown", () => {
+                        bringPanelToFront(panel);
+                    });
+
+                    let startX = 0;
+                    let startY = 0;
+                    let startLeft = 0;
+                    let startTop = 0;
+
+                    grip.addEventListener("pointerdown", event => {
+                        event.preventDefault();
+                        bringPanelToFront(panel);
+                        startX = event.clientX;
+                        startY = event.clientY;
+                        startLeft = panel.offsetLeft;
+                        startTop = panel.offsetTop;
+
+                        function onMove(moveEvent) {
+                            const nextLeft = Math.max(0, startLeft + moveEvent.clientX - startX);
+                            const nextTop = Math.max(0, startTop + moveEvent.clientY - startY);
+                            panel.style.left = `${nextLeft}px`;
+                            panel.style.top = `${nextTop}px`;
+                        }
+
+                        function onUp() {
+                            writePanelLayout(panel);
+                            window.removeEventListener("pointermove", onMove);
+                            window.removeEventListener("pointerup", onUp);
+                        }
+
+                        window.addEventListener("pointermove", onMove);
+                        window.addEventListener("pointerup", onUp);
+                    });
+
+                    const resizeObserver = new ResizeObserver(() => writePanelLayout(panel));
+                    resizeObserver.observe(panel);
+                });
+            }
+
+            function currentScenario(shape, regionKey, projectType, score, roi, complianceStatus) {
+                return {
+                    shape,
+                    regionKey,
+                    projectType,
+                    score,
+                    roi,
+                    complianceStatus
+                };
+            }
+
+            function selectedObjectState() {
+                if (appState.selection.objectId === null) return null;
+                return appState.objects.get(appState.selection.objectId) || null;
+            }
+
+            function applySelectedProgram() {
+                const selected = selectedObjectState();
+                if (!selected) return;
+                selected.program = document.getElementById("obj-program-input").value;
+                applyMeshAppearance(selected.mesh, selected);
+                updateSelectedObjectPanel(selected);
+                updateParametricPanel();
+            }
+
+            function applySelectedMaterial() {
+                const selected = selectedObjectState();
+                if (!selected) return;
+                selected.material = document.getElementById("obj-material-input").value;
+                applyMeshAppearance(selected.mesh, selected);
+                updateSelectedObjectPanel(selected);
+                updateParametricPanel();
+            }
+
+            function applyMeshAppearance(mesh, objectState) {
+                const baseColor = programColors[objectState.program] || 0xc9c2b5;
+                const base = new THREE.Color(baseColor);
+                let finalColor = base.clone();
+                if (objectState.constraintRisk === "high") finalColor.lerp(new THREE.Color(0xc44c3b), 0.28);
+                else if (objectState.constraintRisk === "medium") finalColor.lerp(new THREE.Color(0xe0aa3e), 0.18);
+
+                if (objectState.heatValue !== undefined) {
+                    const heat = Math.max(0, Math.min(1, objectState.heatValue));
+                    const coolColor = new THREE.Color(0x4f6c8c);
+                    const hotColor = new THREE.Color(0xd96b43);
+                    const heatColor = coolColor.lerp(hotColor, heat);
+                    if (mesh === selectedMesh) {
+                        finalColor = heatColor;
+                    }
+                }
+                mesh.material.color.copy(finalColor);
+                if (mesh === selectedMesh && mesh.material.emissive) {
+                    mesh.material.emissive.setHex(0x3b2a12);
+                } else if (mesh.material.emissive) {
+                    mesh.material.emissive.setHex(0x000000);
+                }
+            }
+
+            function programAreaTotals() {
+                const totals = { office: 0, residential: 0, retail: 0 };
+                appState.objects.forEach(obj => {
+                    const areaValue = Number(String(obj.surfaceArea).replace(" m2", ""));
+                    totals[obj.program] = (totals[obj.program] || 0) + areaValue;
+                });
+                return totals;
+            }
+
+            function assignedMixValues() {
+                const totals = programAreaTotals();
+                const assignedTotal = totals.office + totals.residential + totals.retail;
+                if (assignedTotal <= 0) return null;
+                const office = Math.round((totals.office / assignedTotal) * 100);
+                const residential = Math.round((totals.residential / assignedTotal) * 100);
+                const retail = Math.max(0, 100 - office - residential);
+                return { office, residential, retail, total: office + residential + retail };
+            }
+
+            function mixValues() {
+                const office = parseInt(document.getElementById("mix-office").value, 10);
+                const residential = parseInt(document.getElementById("mix-residential").value, 10);
+                const retail = parseInt(document.getElementById("mix-retail").value, 10);
+                return { office, residential, retail, total: office + residential + retail };
+            }
+
+            function saveScenarioSnapshot() {
+                const shape = document.getElementById("shape-input").value;
+                const regionKey = document.getElementById("region-input").value;
+                const projectType = document.getElementById("project-type-input").value;
+                const score = Number(document.getElementById("meta-score").textContent || 0);
+                const roi = Number((document.getElementById("profit-roi").textContent || "0").replace("%", ""));
+                const complianceStatus = document.getElementById("law-status").textContent;
+                const embodiedCarbon = Number((document.getElementById("carbon-embodied").textContent || "0").replace(" kgCO2e", ""));
+
+                const snapshot = currentScenario(shape, regionKey, projectType, score, roi, complianceStatus);
+                snapshot.label = `${toLabel(shape)} / ${toLabel(projectType)}`;
+                snapshot.embodiedCarbon = embodiedCarbon;
+                scenarioLog.unshift(snapshot);
+                scenarioLog = scenarioLog.slice(0, 3);
+                renderScenarioLog();
+                updateOptionRanking();
+            }
+
+            function renderScenarioLog() {
+                const container = document.getElementById("scenario-log");
+                if (!scenarioLog.length) {
+                    container.replaceChildren();
+                    return;
+                }
+
+                container.replaceChildren(
+                    ...scenarioLog.map((item, index) => {
+                        const el = document.createElement("div");
+                        el.className = "snapshot-item";
+                        el.innerHTML = `
+                            <strong>Option ${index + 1}: ${item.label}</strong>
+                            Region: ${toLabel(item.regionKey)} | Score: ${item.score} | ROI: ${item.roi.toFixed(1)}% | Carbon: ${item.embodiedCarbon.toFixed(0)} | Code: ${item.complianceStatus}
+                        `;
+                        return el;
+                    })
+                );
+            }
+
+            function updateOptionRanking() {
+                const container = document.getElementById("ranking-list");
+                if (!scenarioLog.length) {
+                    document.getElementById("ranking-basis").textContent = "Score";
+                    container.replaceChildren();
+                    return;
+                }
+
+                const ranked = [...scenarioLog].sort((a, b) => {
+                    const aPenalty = a.complianceStatus === "Pass" ? 0 : a.complianceStatus === "Review" ? 12 : 30;
+                    const bPenalty = b.complianceStatus === "Pass" ? 0 : b.complianceStatus === "Review" ? 12 : 30;
+                    const aValue = a.score + a.roi - a.embodiedCarbon / 100 - aPenalty;
+                    const bValue = b.score + b.roi - b.embodiedCarbon / 100 - bPenalty;
+                    return bValue - aValue;
+                });
+
+                document.getElementById("ranking-basis").textContent = "Composite";
+                container.replaceChildren(
+                    ...ranked.map((item, index) => {
+                        const el = document.createElement("div");
+                        el.className = "ranking-item";
+                        const penalty = item.complianceStatus === "Pass" ? 0 : item.complianceStatus === "Review" ? 12 : 30;
+                        const composite = item.score + item.roi - item.embodiedCarbon / 100 - penalty;
+                        const pct = Math.max(8, Math.min(100, composite));
+                        el.innerHTML = `
+                            <strong>${index + 1}. ${item.label}</strong>
+                            Score ${item.score} | ROI ${item.roi.toFixed(1)}% | Carbon ${item.embodiedCarbon.toFixed(0)} | ${item.complianceStatus}
+                            <div class="ranking-bar"><div class="ranking-fill" style="width:${pct}%"></div></div>
+                        `;
+                        return el;
+                    })
+                );
+            }
+
+            function updateProgramMixPanel() {
+                const targetMix = mixValues();
+                const actualMix = assignedMixValues();
+                document.getElementById("mix-office-val").textContent = String(targetMix.office);
+                document.getElementById("mix-residential-val").textContent = String(targetMix.residential);
+                document.getElementById("mix-retail-val").textContent = String(targetMix.retail);
+                document.getElementById("mix-total").textContent = `${targetMix.total}%`;
+                setDonut(
+                    "mix-chart",
+                    "mix-chart-value",
+                    Math.min(100, targetMix.total),
+                    `${targetMix.total}%`,
+                    targetMix.total === 100 ? "#5f9c74" : targetMix.total < 100 ? "#e0aa3e" : "#c44c3b"
+                );
+
+                const noteEl = document.getElementById("mix-note");
+                if (targetMix.total === 100) {
+                    noteEl.textContent = "Program distribution is balanced to 100% and ready for option comparison.";
+                } else if (targetMix.total < 100) {
+                    noteEl.textContent = "Program mix is under-allocated. Add more usable area distribution.";
+                } else {
+                    noteEl.textContent = "Program mix exceeds 100%. Rebalance the sliders before taking the output seriously.";
+                }
+
+                if (actualMix) {
+                    noteEl.textContent += ` Actual model assignment: O ${actualMix.office}% / R ${actualMix.residential}% / T ${actualMix.retail}%.`;
+                }
+            }
+
+            function updateSelectedClimatePanel() {
+                const selected = selectedObjectState();
+                const orientationEl = document.getElementById("climate-orientation");
+                const gainEl = document.getElementById("climate-gain");
+                const windEl = document.getElementById("climate-wind");
+                const roseMeta = document.getElementById("rose-meta");
+
+                if (!selected) {
+                    orientationEl.textContent = "-";
+                    gainEl.textContent = "-";
+                    windEl.textContent = "-";
+                    roseMeta.textContent = "Wind vector waiting for object selection.";
+                    return;
+                }
+
+                const climate = appState.climate;
+                const orientationBias = {
+                    North: 0.72,
+                    South: 1.12,
+                    East: 0.96,
+                    West: 1.08,
+                    Horizontal: 1.2
+                };
+                const bias = orientationBias[selected.orientation] || 1.0;
+                const solarGain = (Math.max(2.4, (6.1 - climate.rain * 0.12) * bias)).toFixed(1);
+                const windExposure = (climate.wind * (1 + selected.height / 30)).toFixed(1);
+                const roseArrow = document.getElementById("rose-arrow");
+                roseArrow.style.transform = `rotate(${climate.deg}deg)`;
+
+                orientationEl.textContent = selected.orientation;
+                gainEl.textContent = `${solarGain} kWh/m2`;
+                windEl.textContent = `${windExposure} m/s`;
+                roseMeta.textContent = `${selected.orientation} facade with ${climate.city} wind ${climate.wind} m/s.`;
+            }
+
+            function updateLocalGeometryPanel(meta) {
+                const noteEl = document.getElementById("local-geometry-note");
+                if (!meta) {
+                    document.getElementById("local-part-label").textContent = "No selection";
+                    document.getElementById("local-depth-input").value = "200";
+                    document.getElementById("local-offset-input").value = "0";
+                    document.getElementById("local-open-input").value = "40";
+                    document.getElementById("local-depth-val").textContent = "200";
+                    document.getElementById("local-offset-val").textContent = "0";
+                    document.getElementById("local-open-val").textContent = "40";
+                    document.getElementById("local-lock-label").textContent = "Off";
+                    noteEl.textContent = "Select a mesh to edit its local facade depth, offset, and open ratio.";
+                    return;
+                }
+
+                document.getElementById("local-part-label").textContent = `${toLabel(meta.buildingPart || "unknown")} #${meta.objectIndex}`;
+                document.getElementById("local-depth-input").value = String(meta.localDepth ?? 200);
+                document.getElementById("local-offset-input").value = String(meta.localOffset ?? 0);
+                document.getElementById("local-open-input").value = String(meta.localOpenRatio ?? 40);
+                document.getElementById("local-depth-val").textContent = String(meta.localDepth ?? 200);
+                document.getElementById("local-offset-val").textContent = String(meta.localOffset ?? 0);
+                document.getElementById("local-open-val").textContent = String(meta.localOpenRatio ?? 40);
+                document.getElementById("local-lock-label").textContent = meta.heightLocked ? "On" : "Off";
+                noteEl.textContent = `Editing ${toLabel(meta.buildingPart || "unknown")} using local facade controls for option refinement.`;
+            }
+
+            function applyLocalGeometryControls() {
+                const selected = selectedObjectState();
+                document.getElementById("local-depth-val").textContent = document.getElementById("local-depth-input").value;
+                document.getElementById("local-offset-val").textContent = document.getElementById("local-offset-input").value;
+                document.getElementById("local-open-val").textContent = document.getElementById("local-open-input").value;
+                if (!selected) return;
+
+                selected.localDepth = Number(document.getElementById("local-depth-input").value);
+                selected.localOffset = Number(document.getElementById("local-offset-input").value);
+                selected.localOpenRatio = Number(document.getElementById("local-open-input").value);
+                updateLocalGeometryPanel(selected);
+                updateParametricPanel();
+            }
+
+            function toggleLocalHeightLock() {
+                const selected = selectedObjectState();
+                if (!selected) return;
+                selected.heightLocked = !selected.heightLocked;
+                updateLocalGeometryPanel(selected);
+                updateParametricPanel();
+            }
+
+            function updateFloorStackPanel() {
+                const floorCount = Math.max(1, Number(document.getElementById("floor-count-input").value || 8));
+                const floorToFloor = Math.max(2.6, Number(document.getElementById("floor-height-input").value || 3.9));
+                const towerSetback = Math.max(0, Number(document.getElementById("tower-setback-input").value || 2));
+                const podiumFloors = Math.max(1, Math.min(5, Math.round(floorCount * 0.35)));
+                const towerFloors = Math.max(0, floorCount - podiumFloors);
+                const totalHeight = floorCount * floorToFloor;
+                const statusEl = document.getElementById("floor-stack-status");
+                const noteEl = document.getElementById("floor-stack-note");
+
+                appState.floorStack.floorCount = floorCount;
+                appState.floorStack.floorToFloor = floorToFloor;
+                appState.floorStack.towerSetback = towerSetback;
+
+                document.getElementById("floor-podium").textContent = String(podiumFloors);
+                document.getElementById("floor-tower").textContent = String(towerFloors);
+                document.getElementById("floor-total-height").textContent = `${totalHeight.toFixed(1)} m`;
+
+                if (totalHeight <= 35 && towerSetback >= 1.5) {
+                    statusEl.textContent = "Stable";
+                    statusEl.className = "status-ok";
+                    noteEl.textContent = "Floor stack is balanced for early-stage mid-rise optioneering.";
+                } else if (totalHeight <= 50) {
+                    statusEl.textContent = "Review";
+                    statusEl.className = "status-warn";
+                    noteEl.textContent = "Floor stack is workable, but height and upper setback should be reviewed with code assumptions.";
+                } else {
+                    statusEl.textContent = "Heavy";
+                    statusEl.className = "status-bad";
+                    noteEl.textContent = "Current floor stack pushes the mass into a tall-building review condition.";
+                }
+            }
+
+            function setDonut(chartId, valueId, pct, label, fill) {
+                const chart = document.getElementById(chartId);
+                const valueEl = document.getElementById(valueId);
+                if (!chart || !valueEl) return;
+                chart.style.setProperty("--pct", String(Math.max(0, Math.min(100, pct))));
+                if (fill) chart.style.setProperty("--fill", fill);
+                valueEl.textContent = label;
+            }
+
+            function updateMaterialCarbonPanel(widthValue, thicknessValue, openRatio) {
+                const selected = selectedObjectState();
+                const materialKey = selected ? selected.material : document.getElementById("material-input").value;
+                const profile = materialProfiles[materialKey];
+                let embodiedValue = 0;
+                let weightValue = 0;
+
+                if (appState.objects.size) {
+                    appState.objects.forEach(obj => {
+                        const areaValue = Number(String(obj.surfaceArea).replace(" m2", ""));
+                        const materialProfile = materialProfiles[obj.material] || profile;
+                        embodiedValue += areaValue * materialProfile.carbonFactor * 0.9;
+                        weightValue += areaValue * materialProfile.weightFactor * 0.12;
+                    });
+                } else {
+                    embodiedValue = widthValue * 1000 * profile.carbonFactor * (1.05 - openRatio / 300);
+                    weightValue = widthValue * 100 * profile.weightFactor * (1 + thicknessValue);
+                }
+
+                const embodied = embodiedValue.toFixed(0);
+                const weight = weightValue.toFixed(1);
+                const statusEl = document.getElementById("carbon-status");
+                const noteEl = document.getElementById("carbon-note");
+
+                document.getElementById("carbon-embodied").textContent = `${embodied} kgCO2e`;
+                document.getElementById("carbon-weight").textContent = `${weight} t`;
+                const carbonPct = Math.min(100, (Number(embodied) / 500000) * 100);
+
+                if (Number(embodied) <= 320000) {
+                    statusEl.textContent = "Light";
+                    statusEl.className = "status-ok";
+                    noteEl.textContent = `${profile.label} keeps embodied carbon relatively low for the current model allocation.`;
+                    setDonut("carbon-chart", "carbon-chart-value", carbonPct, `${Math.round(carbonPct)}%`, "#5f9c74");
+                } else if (Number(embodied) <= 460000) {
+                    statusEl.textContent = "Moderate";
+                    statusEl.className = "status-warn";
+                    noteEl.textContent = `${profile.label} is acceptable, but assigned materials should be watched during design development.`;
+                    setDonut("carbon-chart", "carbon-chart-value", carbonPct, `${Math.round(carbonPct)}%`, "#e0aa3e");
+                } else {
+                    statusEl.textContent = "Heavy";
+                    statusEl.className = "status-bad";
+                    noteEl.textContent = `${profile.label} and current assignments push embodied carbon high for the option.`;
+                    setDonut("carbon-chart", "carbon-chart-value", carbonPct, `${Math.round(carbonPct)}%`, "#c44c3b");
+                }
+            }
+
+            function updateConstraintMap(bcr, far, height, region) {
+                const bcrRatio = Math.min(100, (Number(bcr) / region.bcrMax) * 100);
+                const farRatio = Math.min(100, (Number(far) / region.farMax) * 100);
+                const heightRatio = Math.min(100, (Number(height) / region.heightMax) * 100);
+
+                document.getElementById("constraint-bcr").textContent = `${bcr}% / ${region.bcrMax}%`;
+                document.getElementById("constraint-far").textContent = `${far}% / ${region.farMax}%`;
+                document.getElementById("constraint-height").textContent = `${height} m / ${region.heightMax} m`;
+                document.getElementById("constraint-bcr-fill").style.width = `${bcrRatio}%`;
+                document.getElementById("constraint-far-fill").style.width = `${farRatio}%`;
+                document.getElementById("constraint-height-fill").style.width = `${heightRatio}%`;
+                const maxRatio = Math.max(bcrRatio, farRatio, heightRatio);
+                setDonut("law-chart", "law-chart-value", maxRatio, `${Math.round(maxRatio)}%`, maxRatio > 90 ? "#c44c3b" : maxRatio > 75 ? "#e0aa3e" : "#5f9c74");
+
+                const noteEl = document.getElementById("constraint-note");
+                if (bcrRatio > 95 || farRatio > 95 || heightRatio > 95) {
+                    noteEl.textContent = "Current option is pushing hard against one or more code ceilings.";
+                } else if (bcrRatio > 80 || farRatio > 80 || heightRatio > 80) {
+                    noteEl.textContent = "Current option is close to the assumed rule envelope and should be checked carefully.";
+                } else {
+                    noteEl.textContent = "Current option still has room inside the assumed regulatory envelope.";
+                }
+
+                appState.objects.forEach(obj => {
+                    const objectHeightRatio = Math.min(100, (obj.height / region.heightMax) * 100);
+                    const setbackRatio = Math.min(100, (Math.abs(obj.centroid.x) + Math.abs(obj.centroid.y)) * 4.5);
+                    const farObjectRatio = Math.min(100, (Number(String(obj.surfaceArea).replace(" m2", "")) / 200) * 100);
+                    const combinedRatio = Math.max(objectHeightRatio, setbackRatio, farObjectRatio);
+                    if (combinedRatio > 95) obj.constraintRisk = "high";
+                    else if (combinedRatio > 80) obj.constraintRisk = "medium";
+                    else obj.constraintRisk = "low";
+                    applyMeshAppearance(obj.mesh, obj);
+                });
+            }
+
+            function updateReportPanel(complianceStatus, roi) {
+                document.getElementById("report-option").textContent = document.getElementById("meta-shape").textContent;
+                const stateEl = document.getElementById("report-state");
+                if (complianceStatus === "Pass" && roi >= 12) {
+                    stateEl.textContent = "Ready";
+                    stateEl.className = "status-ok";
+                    document.getElementById("report-note").textContent = "Current option is strong enough to export as a design review snapshot.";
+                } else if (complianceStatus !== "Fail") {
+                    stateEl.textContent = "Needs Review";
+                    stateEl.className = "status-warn";
+                    document.getElementById("report-note").textContent = "Current option can be exported, but assumptions should be documented.";
+                } else {
+                    stateEl.textContent = "Blocked";
+                    stateEl.className = "status-bad";
+                    document.getElementById("report-note").textContent = "Current option fails critical assumptions and should be revised before export.";
+                }
+            }
+
+            function exportDesignReport() {
+                window.print();
+            }
+
+            function captureBaseline() {
+                const shape = document.getElementById("shape-input").value;
+                const regionKey = document.getElementById("region-input").value;
+                const projectType = document.getElementById("project-type-input").value;
+                const score = Number(document.getElementById("meta-score").textContent || 0);
+                const roi = Number((document.getElementById("profit-roi").textContent || "0").replace("%", ""));
+                const complianceStatus = document.getElementById("law-status").textContent;
+
+                baselineScenario = currentScenario(shape, regionKey, projectType, score, roi, complianceStatus);
+                updateScenarioCompare(shape, score, roi, complianceStatus);
+            }
+
+            function updateScenarioCompare(shape, score, roi, complianceStatus) {
+                const statusEl = document.getElementById("compare-status");
+                const noteEl = document.getElementById("compare-note");
+
+                if (!baselineScenario) {
+                    document.getElementById("compare-shape").textContent = "-";
+                    document.getElementById("compare-score").textContent = "-";
+                    document.getElementById("compare-roi").textContent = "-";
+                    document.getElementById("compare-law").textContent = "-";
+                    statusEl.textContent = "No baseline";
+                    statusEl.className = "";
+                    noteEl.textContent = "Capture a baseline, then tune parameters to compare options.";
+                    return;
+                }
+
+                const scoreDelta = score - baselineScenario.score;
+                const roiDelta = (roi - baselineScenario.roi).toFixed(1);
+                const lawShift = `${baselineScenario.complianceStatus} -> ${complianceStatus}`;
+
+                document.getElementById("compare-shape").textContent = toLabel(baselineScenario.shape);
+                document.getElementById("compare-score").textContent = `${scoreDelta >= 0 ? "+" : ""}${scoreDelta}`;
+                document.getElementById("compare-roi").textContent = `${Number(roiDelta) >= 0 ? "+" : ""}${roiDelta}%`;
+                document.getElementById("compare-law").textContent = lawShift;
+
+                if (scoreDelta >= 0 && Number(roiDelta) >= 0 && complianceStatus === "Pass") {
+                    statusEl.textContent = "Improved";
+                    statusEl.className = "status-ok";
+                    noteEl.textContent = "Current option outperforms the baseline on both quality and viability.";
+                } else if (scoreDelta >= -5 && Number(roiDelta) >= -3) {
+                    statusEl.textContent = "Comparable";
+                    statusEl.className = "status-warn";
+                    noteEl.textContent = "Current option is near the baseline and may need qualitative review.";
+                } else {
+                    statusEl.textContent = "Worse";
+                    statusEl.className = "status-bad";
+                    noteEl.textContent = "Current option regresses against the baseline and should be reconsidered.";
+                }
+            }
+
+            async function fetchWeather(city, btn) {
+                document.querySelectorAll(".city-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                const mockData = {
+                    Seoul: { temp: 18.5, wind: 3.2, rain: 0.0, deg: 45 },
+                    Busan: { temp: 21.0, wind: 5.8, rain: 1.2, deg: 180 },
+                    Jeju: { temp: 23.5, wind: 8.2, rain: 5.0, deg: 270 }
+                };
+                const data = mockData[city] || { temp: 20.0, wind: 2.0, rain: 0.0, deg: 0 };
+                appState.climate = { city, ...data };
+                document.getElementById("weather-info").innerHTML =
+                    `${city} | Temp: ${data.temp}C | Wind: ${data.wind}m/s | Rain: ${data.rain}mm`;
+                document.getElementById("wind-arrow").style.transform = `rotate(${data.deg}deg)`;
+
+                const solar = (5.8 - (data.rain * 0.15)).toFixed(1);
+                const carbon = Math.max(860, 1500 - data.temp * 12 - data.wind * 20).toFixed(0);
+                const shade = Math.min(48, 14 + data.wind * 2.1 + data.rain * 1.4).toFixed(1);
+                document.getElementById("solar-val").textContent = `${solar} hr/day`;
+                document.getElementById("carbon-val").textContent = `${carbon} kg/yr`;
+                document.getElementById("shade-val").textContent = `${shade}%`;
+                updateSelectedClimatePanel();
+                updateObjectHeatmap();
+            }
+
+            function updateObjectHeatmap() {
+                const climate = appState.climate;
+                const orientationBias = {
+                    North: 0.72,
+                    South: 1.12,
+                    East: 0.96,
+                    West: 1.08,
+                    Horizontal: 1.2
+                };
+
+                appState.objects.forEach(obj => {
+                    const bias = orientationBias[obj.orientation] || 1.0;
+                    const heatValue = Math.max(0, Math.min(1, ((6.1 - climate.rain * 0.12) * bias) / 8));
+                    obj.heatValue = heatValue;
+                    applyMeshAppearance(obj.mesh, obj);
+                });
+            }
+
+            function readGeometryControls(updateLabels = true) {
+                const shape = document.getElementById("shape-input").value;
+                const thicknessMm = parseInt(document.getElementById("thick-input").value, 10);
+                const widthMm = parseInt(document.getElementById("width-input").value, 10);
+                const openRatioPercent = parseInt(document.getElementById("ratio-input").value, 10);
+                const taperPercent = parseInt(document.getElementById("taper-input").value, 10);
+                const rotationDeg = parseInt(document.getElementById("rotation-input").value, 10);
+                const bayCount = parseInt(document.getElementById("bay-input").value, 10);
+                const gridSnapMm = parseInt(document.getElementById("snap-input").value, 10);
+
+                if (updateLabels) {
+                    document.getElementById("thick-val").innerText = String(thicknessMm);
+                    document.getElementById("width-val").innerText = String(widthMm);
+                    document.getElementById("ratio-val").innerText = String(openRatioPercent);
+                    document.getElementById("taper-val").innerText = String(taperPercent);
+                    document.getElementById("rotation-val").innerText = String(rotationDeg);
+                    document.getElementById("bay-val").innerText = String(bayCount);
+                    document.getElementById("snap-val").innerText = String(gridSnapMm);
+                }
+
+                return {
+                    shape,
+                    thicknessMm,
+                    widthMm,
+                    openRatioPercent,
+                    taperPercent,
+                    rotationDeg,
+                    bayCount,
+                    gridSnapMm,
+                    thicknessValue: thicknessMm / 1000,
+                    widthValue: widthMm / 1000,
+                    openRatioFactor: openRatioPercent / 100,
+                    gridSnapM: gridSnapMm / 1000
+                };
+            }
+
+            function updatePreview() {
+                const geometry = readGeometryControls(true);
+                const { shape, thicknessValue: t, widthValue: w, openRatioFactor: r, taperPercent, rotationDeg, bayCount, gridSnapM } = geometry;
+
+                if (pGroup) {
+                    pGroup.clear();
+                    const gridCount = bayCount >= 10 ? 4 : bayCount >= 6 ? 3 : 2;
+                    const gap = Math.max(0.1, gridSnapM * 0.35);
+                    const taperScale = Math.max(0.48, 1 - taperPercent / 100);
+                    const baseRotation = THREE.MathUtils.degToRad(rotationDeg);
+                    for (let i = 0; i < gridCount; i += 1) {
+                        for (let j = 0; j < gridCount; j += 1) {
+                            let geo;
+                            const sW = Math.max(0.22, w * (1 - r * 0.55));
+                            if (shape === "cylinder") {
+                                geo = new THREE.CylinderGeometry(Math.max(0.08, (sW * taperScale) / 2), sW / 2, t, 18);
+                            } else if (shape === "sphere") {
+                                geo = new THREE.SphereGeometry(Math.max(0.12, sW / 2), 18, 18);
+                            } else if (shape === "diamond") {
+                                geo = new THREE.CylinderGeometry(Math.max(0.08, (sW * taperScale) / 2), sW / 2, t, 4);
+                            } else {
+                                geo = new THREE.CylinderGeometry(Math.max(0.08, (sW * taperScale) / Math.SQRT2), sW / Math.SQRT2, t, 4);
+                            }
+
+                            const m = new THREE.Mesh(
+                                geo,
+                                new THREE.MeshLambertMaterial({ color: 0x555555 })
+                            );
+                            const rawX = (i - (gridCount - 1) / 2) * (w + gap);
+                            const rawY = (j - (gridCount - 1) / 2) * (w + gap);
+                            m.position.set(
+                                Math.round(rawX / gridSnapM) * gridSnapM,
+                                Math.round(rawY / gridSnapM) * gridSnapM,
+                                taperPercent * 0.002
+                            );
+
+                            if (shape === "sphere") {
+                                const squash = Math.max(0.72, 1 - taperPercent / 140);
+                                m.scale.set(1, squash, 1 + taperPercent / 160);
+                                m.rotation.z = baseRotation;
+                            } else {
+                                m.rotation.x = Math.PI / 2;
+                                m.rotation.z = baseRotation + (shape === "box" ? Math.PI / 4 : 0);
+                            }
+                            pGroup.add(m);
+                            m.add(new THREE.LineSegments(
+                                new THREE.EdgesGeometry(geo),
+                                new THREE.LineBasicMaterial({ color: 0xffffff })
+                            ));
+                        }
+                    }
+                }
+            }
+
+            function buildComplianceContext(shape, thicknessValue, widthValue, openRatio, regionKey, projectType, taperValue, rotationValue, bayCount, gridSnap) {
+                const zoningKey = document.getElementById("zoning-input").value;
+                const siteArea = Math.max(200, Number(document.getElementById("site-area-input").value || 1200));
+                const roadWidth = Math.max(2, Number(document.getElementById("road-width-input").value || 8));
+                const northSetback = Math.max(0, Number(document.getElementById("north-setback-input").value || 9));
+                const floorCount = appState.floorStack.floorCount;
+                const floorToFloor = appState.floorStack.floorToFloor;
+                const towerSetback = appState.floorStack.towerSetback;
+                const selected = selectedObjectState();
+                const localDepthFactor = selected ? 1 + (selected.localDepth - 200) / 2200 : 1;
+                const localOpenFactor = selected ? 1 + (selected.localOpenRatio - 40) / 250 : 1;
+                const taperFactor = Math.max(0.82, 1 - taperValue / 110);
+                const rotationFactor = Math.max(0.88, 1 - Math.abs(rotationValue) / 240);
+                const bayFactor = 0.92 + bayCount * 0.03;
+                const snapFactor = gridSnap < 250 ? 0.96 : gridSnap > 500 ? 1.02 : 1.0;
+                const footprintArea = (210 + widthValue * 230 + openRatio * 3.4 + thicknessValue * 80 - towerSetback * 18) * localDepthFactor * taperFactor * rotationFactor;
+                const grossFloorArea = footprintArea * (floorCount * 0.36 + widthValue * 0.55 - thicknessValue * 0.25 + (openRatio / 85) * localOpenFactor) * bayFactor * snapFactor;
+                const height = Number((floorCount * floorToFloor).toFixed(1));
+                const bcr = Number(((footprintArea / siteArea) * 100).toFixed(1));
+                const far = Number(((grossFloorArea / siteArea) * 100).toFixed(1));
+
+                return {
+                    shape,
+                    thicknessValue,
+                    widthValue,
+                    openRatio,
+                    regionKey,
+                    projectType,
+                    zoningKey,
+                    siteArea,
+                    roadWidth,
+                    northSetback,
+                    floorCount,
+                    floorToFloor,
+                    towerSetback,
+                    taperValue,
+                    rotationValue,
+                    bayCount,
+                    gridSnap,
+                    footprintArea: Number(footprintArea.toFixed(1)),
+                    grossFloorArea: Number(grossFloorArea.toFixed(1)),
+                    bcr,
+                    far,
+                    height
+                };
+            }
+
+            function uniqueSources(rules) {
+                const seen = new Set();
+                return rules.filter(rule => {
+                    if (!rule.source || seen.has(rule.source.title)) return false;
+                    seen.add(rule.source.title);
+                    return true;
+                });
+            }
+
+            function renderComplianceSources(state) {
+                const container = document.getElementById("law-reference");
+                const sources = uniqueSources(state.rules || []);
+                if (!sources.length) {
+                    container.replaceChildren();
+                    return;
+                }
+
+                container.innerHTML = sources.map(rule =>
+                    `<a href="${rule.source.url}" target="_blank" rel="noreferrer">${rule.source.title} (${rule.source.effectiveDate})</a>`
+                ).join("");
+            }
+
+            function evaluateSeoulCompliance(context) {
+                const zoning = zoningProfiles[context.zoningKey] || zoningProfiles.second_general_residential;
+                const requiredNorthSetback = Number((context.height <= 9 ? 1.5 : Math.max(1.5, context.height / 2)).toFixed(1));
+                const openSpaceStatus = context.roadWidth < 4 ? "Fail" : "Review";
+                const heightReviewText = `${context.height.toFixed(1)} m / district review`;
+
+                const rules = [
+                    {
+                        id: "bcr_limit",
+                        label: "BCR",
+                        status: context.bcr <= zoning.bcrMax ? "Pass" : "Fail",
+                        source: koreanLawCatalog.nationalBcr,
+                        detail: `${context.bcr}% / ${zoning.bcrMax}%`
+                    },
+                    {
+                        id: "far_limit",
+                        label: "FAR",
+                        status: context.far <= zoning.farMax ? "Pass" : "Fail",
+                        source: koreanLawCatalog.nationalFar,
+                        detail: `${context.far}% / ${zoning.farMax}%`
+                    },
+                    {
+                        id: "daylight",
+                        label: "Daylight Setback",
+                        status: context.northSetback >= requiredNorthSetback ? "Pass" : "Fail",
+                        source: koreanLawCatalog.daylight,
+                        detail: `${context.northSetback.toFixed(1)} m / req ${requiredNorthSetback.toFixed(1)} m`
+                    },
+                    {
+                        id: "open_space",
+                        label: "Open Space / Road",
+                        status: openSpaceStatus,
+                        source: koreanLawCatalog.buildingOpenSpace,
+                        detail: context.roadWidth < 4 ? `Road ${context.roadWidth.toFixed(1)} m, access risk` : `Road ${context.roadWidth.toFixed(1)} m, Appendix review`
+                    },
+                    {
+                        id: "seoul_ordinance",
+                        label: "Local Ordinance",
+                        status: "Review",
+                        source: koreanLawCatalog.seoulUrban,
+                        detail: `${zoning.label} baseline applied`
+                    }
+                ];
+
+                const hasFail = rules.some(rule => rule.status === "Fail");
+                const hasReview = rules.some(rule => rule.status === "Review");
+                const status = hasFail ? "Fail" : hasReview ? "Review" : "Pass";
+                const note = hasFail
+                    ? `Seoul primary checks found a hard limit breach. Confirm zoning, boundary geometry, and district controls before proceeding.`
+                    : hasReview
+                        ? `Seoul primary checks passed quantitative limits, but ordinance-dependent items still require manual review.`
+                        : `Seoul primary checks passed under the current zoning and site assumptions.`;
+
+                return {
+                    status,
+                    bcr: context.bcr,
+                    far: context.far,
+                    height: context.height,
+                    thresholds: {
+                        bcrMax: zoning.bcrMax,
+                        farMax: zoning.farMax,
+                        heightMax: regionRules.seoul.heightMax
+                    },
+                    automationScope: "BCR/FAR auto + daylight partial + road review",
+                    effectiveDate: "2026-01-05 / 2026-02-27",
+                    heightText: heightReviewText,
+                    daylightText: `${context.northSetback.toFixed(1)} m / req ${requiredNorthSetback.toFixed(1)} m`,
+                    openingText: context.roadWidth < 4 ? "Access Risk" : "Manual Review",
+                    summaryText: note,
+                    rules,
+                    context
+                };
+            }
+
+            function evaluateProxyCompliance(context) {
+                const region = regionRules[context.regionKey];
+                const daylight = context.openRatio <= region.openingMax ? "Clear" : context.openRatio <= region.reviewOpening ? "Review" : "Conflict";
+                const opening = context.openRatio <= region.openingMax ? "Pass" : context.openRatio <= region.reviewOpening ? "Review" : "Fail";
+                let status = "Fail";
+                let note = `This option exceeds the assumed ${context.regionKey} early-stage limits and needs redesign.`;
+
+                if (context.bcr <= region.bcrMax && context.far <= region.farMax && context.height <= region.heightMax && context.openRatio <= region.openingMax) {
+                    status = "Pass";
+                    note = `Current massing fits the assumed ${context.regionKey} proxy envelope.`;
+                } else if (context.bcr <= region.reviewBcr && context.far <= region.reviewFar && context.height <= region.reviewHeight && context.openRatio <= region.reviewOpening) {
+                    status = "Review";
+                    note = `One or more ${context.regionKey} proxy constraints are near the limit.`;
+                }
+
+                return {
+                    status,
+                    bcr: context.bcr,
+                    far: context.far,
+                    height: context.height,
+                    thresholds: {
+                        bcrMax: region.bcrMax,
+                        farMax: region.farMax,
+                        heightMax: region.heightMax
+                    },
+                    automationScope: "Proxy only",
+                    effectiveDate: "Local placeholder",
+                    heightText: `${context.height.toFixed(1)} m`,
+                    daylightText: daylight,
+                    openingText: opening,
+                    summaryText: note,
+                    rules: [],
+                    context
+                };
+            }
+
+            function updateParametricPanel() {
+                const geometry = readGeometryControls(true);
+                const {
+                    shape,
+                    thicknessValue: t,
+                    widthValue: w,
+                    openRatioPercent: ratio,
+                    taperPercent,
+                    rotationDeg,
+                    bayCount,
+                    gridSnapMm
+                } = geometry;
+                const regionKey = document.getElementById("region-input").value;
+                const projectType = document.getElementById("project-type-input").value;
+                appState.controls.regionKey = regionKey;
+                appState.controls.projectType = projectType;
+                appState.controls.materialKey = document.getElementById("material-input").value;
+                appState.controls.zoningKey = document.getElementById("zoning-input").value;
+                appState.controls.siteArea = Number(document.getElementById("site-area-input").value || 1200);
+                appState.controls.roadWidth = Number(document.getElementById("road-width-input").value || 8);
+                appState.controls.northSetback = Number(document.getElementById("north-setback-input").value || 9);
+                appState.controls.taper = taperPercent;
+                appState.controls.rotation = rotationDeg;
+                appState.controls.bayCount = bayCount;
+                appState.controls.gridSnap = gridSnapMm;
+                const score = Math.max(35, Math.round(96 - ratio * 0.52 - t * 30 + w * 8 - taperPercent * 0.45 - Math.abs(rotationDeg) * 0.28 + bayCount * 1.2 - (gridSnapMm < 250 ? 3 : 0)));
+                const complianceContext = buildComplianceContext(shape, t, w, ratio, regionKey, projectType, taperPercent, rotationDeg, bayCount, gridSnapMm);
+
+                document.getElementById("para-shape").textContent = shape;
+                document.getElementById("para-thick").textContent = `${t.toFixed(2)} m`;
+                document.getElementById("para-width").textContent = `${w.toFixed(2)} m`;
+                document.getElementById("para-ratio").textContent = `${ratio}%`;
+                document.getElementById("para-taper").textContent = `${taperPercent}%`;
+                document.getElementById("para-rotation").textContent = `${rotationDeg} deg`;
+                document.getElementById("para-bays").textContent = String(bayCount);
+                document.getElementById("para-snap").textContent = `${gridSnapMm} mm`;
+                const scoreEl = document.getElementById("para-score");
+                scoreEl.textContent = String(score);
+                scoreEl.className = score >= 70 ? "status-ok" : score >= 50 ? "status-warn" : "status-bad";
+                document.getElementById("meta-region").textContent = toLabel(regionKey);
+                document.getElementById("meta-project").textContent = toLabel(projectType);
+                document.getElementById("meta-shape").textContent = toLabel(shape);
+                document.getElementById("meta-score").textContent = String(score);
+                updateFloorStackPanel();
+                updateProgramMixPanel();
+                updateMaterialCarbonPanel(w, t, ratio);
+
+                const complianceState = updateDetailedCompliancePanel(complianceContext);
+                updateCompliancePanel(complianceState);
+                const roi = updateProfitabilityPanel(shape, t, w, ratio, score, projectType, taperPercent, rotationDeg, bayCount, gridSnapMm);
+                updateScenarioCompare(shape, score, roi, complianceState.status);
+                updateConstraintMap(complianceState.bcr, complianceState.far, complianceState.height, complianceState.thresholds);
+                updateReportPanel(complianceState.status, roi);
+            }
+
+            function updateCompliancePanel(state) {
+                document.getElementById("comp-envelope").textContent = `${state.bcr}%`;
+                document.getElementById("comp-open").textContent = `${state.context.northSetback.toFixed(1)} m`;
+                document.getElementById("comp-far").textContent = `${state.far}%`;
+                const statusEl = document.getElementById("comp-status");
+                if (state.status === "Pass") {
+                    statusEl.textContent = "Pass";
+                    statusEl.className = "status-ok";
+                } else if (state.status === "Review") {
+                    statusEl.textContent = "Review";
+                    statusEl.className = "status-warn";
+                } else {
+                    statusEl.textContent = "Fail";
+                    statusEl.className = "status-bad";
+                }
+            }
+
+            function updateDetailedCompliancePanel(context) {
+                const state = context.regionKey === "seoul"
+                    ? evaluateSeoulCompliance(context)
+                    : evaluateProxyCompliance(context);
+
+                document.getElementById("law-bcr").textContent = `${state.bcr}% / ${state.thresholds.bcrMax}%`;
+                document.getElementById("law-far").textContent = `${state.far}% / ${state.thresholds.farMax}%`;
+                document.getElementById("law-height").textContent = state.heightText;
+                document.getElementById("law-daylight").textContent = state.daylightText;
+                document.getElementById("law-opening").textContent = state.openingText;
+                document.getElementById("law-scope").textContent = state.automationScope;
+                document.getElementById("law-effective").textContent = state.effectiveDate;
+
+                const resultEl = document.getElementById("law-status");
+                const noteEl = document.getElementById("law-note");
+                if (state.status === "Pass") {
+                    resultEl.textContent = "Pass";
+                    resultEl.className = "status-ok";
+                } else if (state.status === "Review") {
+                    resultEl.textContent = "Review";
+                    resultEl.className = "status-warn";
+                } else {
+                    resultEl.textContent = "Fail";
+                    resultEl.className = "status-bad";
+                }
+                noteEl.textContent = state.summaryText;
+                renderComplianceSources(state);
+                return state;
+            }
+
+            function updateProfitabilityPanel(shape, thicknessValue, widthValue, openRatio, score, projectType, taperValue, rotationValue, bayCount, gridSnap) {
+                const shapeFactorMap = {
+                    box: 1.0,
+                    diamond: 0.93,
+                    cylinder: 0.9,
+                    sphere: 0.82
+                };
+                const mix = mixValues();
+                const profile = projectProfiles[projectType];
+                const shapeFactor = shapeFactorMap[shape] || 1.0;
+                const floorCount = appState.floorStack.floorCount;
+                const local = selectedObjectState();
+                const localBoost = local ? 1 + (local.localDepth - 200) / 2800 : 1;
+                const taperFactor = Math.max(0.9, 1 - taperValue / 220);
+                const rotationFactor = Math.max(0.9, 1 - Math.abs(rotationValue) / 260);
+                const bayEfficiency = 0.94 + bayCount * 0.025;
+                const facadePremium = 1 + Math.max(0, bayCount - 6) * 0.018 + Math.max(0, taperValue - 8) * 0.004;
+                const snapCostFactor = gridSnap < 250 ? 1.06 : gridSnap > 500 ? 0.98 : 1.0;
+                const gfa = (widthValue * 1000 * shapeFactor * (1.15 - openRatio / 200) * (0.62 + floorCount * 0.12) * localBoost * taperFactor * rotationFactor * bayEfficiency).toFixed(0);
+                const nsa = (Number(gfa) * profile.efficiency).toFixed(0);
+                const mixRevenueFactor = (mix.office * 1.1 + mix.residential * 0.92 + mix.retail * 1.24) / 100;
+                const mixCostFactor = (mix.office * 1.02 + mix.residential * 0.96 + mix.retail * 1.08) / 100;
+                const cost = (Number(gfa) * (profile.costPerM2 * mixCostFactor + thicknessValue * 500) * snapCostFactor * (1 + taperValue * 0.004 + Math.abs(rotationValue) * 0.0035)).toFixed(0);
+                const revenue = (Number(nsa) * ((profile.revenuePerM2 * mixRevenueFactor) - openRatio * 8 + score * profile.scoreWeight) * facadePremium).toFixed(0);
+                const roi = (((Number(revenue) - Number(cost)) / Number(cost)) * 100).toFixed(1);
+                const payback = (Math.max(2.8, 8.4 - Number(roi) / 8)).toFixed(1);
+
+                document.getElementById("profit-gfa").textContent = `${gfa} m2`;
+                document.getElementById("profit-nsa").textContent = `${nsa} m2`;
+                document.getElementById("profit-cost").textContent = `$${cost}`;
+                document.getElementById("profit-revenue").textContent = `$${revenue}`;
+                const roiEl = document.getElementById("profit-roi");
+                roiEl.textContent = `${roi}%`;
+                roiEl.className = Number(roi) >= 18 ? "status-ok" : Number(roi) >= 8 ? "status-warn" : "status-bad";
+                document.getElementById("profit-payback").textContent = `${payback} yrs`;
+                const roiPct = Math.max(0, Math.min(100, (Number(roi) / 25) * 100));
+                setDonut("profit-chart", "profit-chart-value", roiPct, `${roi}%`, Number(roi) >= 18 ? "#5f9c74" : Number(roi) >= 8 ? "#e0aa3e" : "#c44c3b");
+
+                const noteEl = document.getElementById("profit-note");
+                if (Number(roi) >= 18) {
+                    noteEl.textContent = `${projectType.replace("_", " ")} profile with the current mix shows strong commercial performance.`;
+                } else if (Number(roi) >= 8) {
+                    noteEl.textContent = `${projectType.replace("_", " ")} returns are plausible, but mix balance or facade ratio should be tuned.`;
+                } else {
+                    noteEl.textContent = `This ${projectType.replace("_", " ")} option underperforms under the current mix and financial assumptions.`;
+                }
+
+                return Number(roi);
+            }
+
+            rhino3dm().then(async res => {
+                rhino = res;
+                init();
+                displayModel(data64);
+                initPreview();
+                updateLocalGeometryPanel(null);
+                updateFloorStackPanel();
+                updateParametricPanel();
+                updateMeshLoadPanel();
+                fetchWeather("Seoul", document.querySelector(".city-btn"));
+            });
+
+            function initPreview() {
+                const pContainer = document.getElementById("preview-container");
+                pScene = new THREE.Scene();
+                pScene.background = new THREE.Color(0xdddddd);
+                pCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+                pCamera.position.set(4, 4, 4);
+                pRenderer = new THREE.WebGLRenderer({ antialias: true });
+                pRenderer.setSize(160, 160);
+                pContainer.appendChild(pRenderer.domElement);
+                pGroup = new THREE.Group();
+                pScene.add(pGroup);
+                pScene.add(new THREE.AmbientLight(0xffffff, 0.9));
+                pControls = new THREE.OrbitControls(pCamera, pRenderer.domElement);
+                function pAnimate() {
+                    requestAnimationFrame(pAnimate);
+                    pControls.update();
+                    pRenderer.render(pScene, pCamera);
+                }
+                pAnimate();
+                updatePreview();
+            }
+
+            function init() {
+                container = document.getElementById("viewer-container");
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xfaf8f2);
+                camera = new THREE.PerspectiveCamera(
+                    45,
+                    container.clientWidth / container.clientHeight,
+                    0.1,
+                    1000000
+                );
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                container.appendChild(renderer.domElement);
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                const keyLight = new THREE.DirectionalLight(0xffffff, 0.45);
+                keyLight.position.set(1, 1, 1);
+                scene.add(keyLight);
+                modelGroup = new THREE.Group();
+                scene.add(modelGroup);
+
+                raycaster = new THREE.Raycaster();
+                mouse = new THREE.Vector2();
+                renderer.domElement.addEventListener("pointerdown", onPointerDown, false);
+
+                animate();
+                setTimeout(() => {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }, 200);
+            }
+
+            function onPointerDown(event) {
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                const hits = raycaster.intersectObjects(selectableMeshes, false);
+                if (hits.length === 0) return;
+                const mesh = hits[0].object;
+                if (!mesh.userData || !mesh.userData.meta) return;
+
+                if (selectedMesh && selectedMesh.material && selectedMesh.material.emissive) {
+                    selectedMesh.material.emissive.setHex(0x000000);
+                }
+
+                selectedMesh = mesh;
+                appState.selection.objectId = mesh.userData.meta.objectId;
+                if (selectedMesh.material && selectedMesh.material.emissive) {
+                    selectedMesh.material.emissive.setHex(0x3b2a12);
+                }
+                updateSelectedObjectPanel(appState.objects.get(appState.selection.objectId));
+                updateObjectHeatmap();
+                updateParametricPanel();
+            }
+
+            function updateSelectedObjectPanel(meta) {
+                if (!meta) return;
+                document.getElementById("obj-index").textContent = String(meta.objectIndex);
+                document.getElementById("obj-type").textContent = meta.geomType;
+                document.getElementById("obj-part").textContent = toLabel(meta.buildingPart || "unknown");
+                document.getElementById("obj-part-source").textContent = toLabel(meta.partSource || "geometry");
+                document.getElementById("obj-faces").textContent = String(meta.faceCount);
+                document.getElementById("obj-verts").textContent = String(meta.vertexCount);
+                document.getElementById("obj-bbox").textContent = meta.boundingBox;
+                document.getElementById("obj-area").textContent = meta.surfaceArea;
+                document.getElementById("obj-program").textContent = toLabel(meta.program);
+                document.getElementById("obj-material").textContent = toLabel(meta.material);
+                document.getElementById("obj-program-input").value = meta.program;
+                document.getElementById("obj-material-input").value = meta.material;
+                document.getElementById("obj-time").textContent = new Date().toLocaleTimeString();
+                updateSelectedClimatePanel();
+                updateLocalGeometryPanel(meta);
+            }
+
+            function setView(type) {
+                const box = new THREE.Box3().setFromObject(modelGroup);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const dist = Math.max(size.x, size.y, size.z) * 2.5;
+                if (type === "perspective") camera.position.set(center.x + dist, center.y + dist, center.z + dist);
+                else if (type === "top") camera.position.set(center.x, center.y, center.z + dist);
+                else if (type === "front") camera.position.set(center.x, center.y - dist, center.z);
+                else if (type === "right") camera.position.set(center.x + dist, center.y, center.z);
+                controls.target.copy(center);
+                controls.update();
+            }
+
+            function safeTextValue(value) {
+                if (value === undefined || value === null) return "";
+                return String(value).trim();
+            }
+
+            function extractMetadataHint(sourceObject, doc) {
+                const tokens = [];
+
+                try {
+                    const directName = safeTextValue(sourceObject && sourceObject.name ? sourceObject.name : "");
+                    if (directName) tokens.push(directName);
+                } catch (error) {}
+
+                try {
+                    const attrs = sourceObject && typeof sourceObject.attributes === "function"
+                        ? sourceObject.attributes()
+                        : null;
+                    const attrName = safeTextValue(attrs && attrs.name ? attrs.name : "");
+                    if (attrName) tokens.push(attrName);
+
+                    const layerIndex = attrs && Number.isFinite(Number(attrs.layerIndex)) ? Number(attrs.layerIndex) : null;
+                    if (layerIndex !== null && doc && typeof doc.layers === "function") {
+                        const layers = doc.layers();
+                        if (layers && typeof layers.get === "function") {
+                            const layer = layers.get(layerIndex);
+                            const layerName = safeTextValue(layer && layer.name ? layer.name : "");
+                            if (layerName) tokens.push(layerName);
+                        }
+                    }
+                } catch (error) {}
+
+                return tokens.join(" ").toLowerCase();
+            }
+
+            function classifyPartFromHint(hintText) {
+                const hint = safeTextValue(hintText).toLowerCase();
+                if (!hint) return null;
+
+                const rules = [
+                    { part: "window", words: ["window", "glazing", "glass", "curtain", "vision"] },
+                    { part: "wall", words: ["wall", "facade", "cladding", "partition"] },
+                    { part: "floor", words: ["floor", "slab", "deck", "ground"] },
+                    { part: "ceiling", words: ["ceiling", "roof", "soffit"] }
+                ];
+
+                for (const rule of rules) {
+                    if (rule.words.some(word => hint.includes(word))) {
+                        return rule.part;
+                    }
+                }
+                return null;
+            }
+
+            function inferAverageNormal(geometry) {
+                const normals = geometry.getAttribute("normal");
+                if (!normals || normals.count === 0) return { x: 0, y: 0, z: 1 };
+
+                let nx = 0;
+                let ny = 0;
+                let nz = 0;
+                for (let i = 0; i < normals.count; i += 1) {
+                    nx += normals.getX(i);
+                    ny += normals.getY(i);
+                    nz += normals.getZ(i);
+                }
+
+                const length = Math.hypot(nx, ny, nz) || 1;
+                return {
+                    x: nx / length,
+                    y: ny / length,
+                    z: nz / length
+                };
+            }
+
+            function classifyPartFromGeometry(meta, modelBounds) {
+                const modelHeight = Math.max(0.01, modelBounds.max.z - modelBounds.min.z);
+                const modelSpan = Math.max(0.01, modelBounds.max.x - modelBounds.min.x, modelBounds.max.y - modelBounds.min.y);
+                const lowTol = Math.max(0.25, modelHeight * 0.08);
+                const topTol = Math.max(0.25, modelHeight * 0.08);
+                const minXY = Math.min(meta.bboxSize.x, meta.bboxSize.y);
+                const maxXY = Math.max(meta.bboxSize.x, meta.bboxSize.y);
+                const mostlyHorizontal = Math.abs(meta.normal.z) >= 0.72 || meta.orientation === "Horizontal";
+                const mostlyVertical = Math.abs(meta.normal.z) <= 0.35 && meta.bboxSize.z >= Math.max(0.4, minXY * 1.25);
+                const touchesBottom = Math.abs(meta.bboxMin.z - modelBounds.min.z) <= lowTol;
+                const touchesTop = Math.abs(meta.bboxMax.z - modelBounds.max.z) <= topTol;
+                const inWindowBand =
+                    meta.centroid.z > modelBounds.min.z + modelHeight * 0.15 &&
+                    meta.centroid.z < modelBounds.max.z - modelHeight * 0.08;
+                const isThinVerticalPanel =
+                    mostlyVertical &&
+                    minXY <= modelSpan * 0.18 &&
+                    meta.surfaceAreaValue <= modelSpan * modelHeight * 0.24 &&
+                    maxXY <= modelSpan * 0.7;
+
+                if (mostlyHorizontal) {
+                    if (touchesBottom || meta.centroid.z <= modelBounds.min.z + modelHeight * 0.35) return "floor";
+                    if (touchesTop || meta.centroid.z >= modelBounds.min.z + modelHeight * 0.65) return "ceiling";
+                }
+
+                if (isThinVerticalPanel && inWindowBand) return "window";
+                if (mostlyVertical) return "wall";
+                return "unknown";
+            }
+
+            function classifyModelObjects() {
+                if (!appState.objects.size) return;
+
+                const boundsBox = new THREE.Box3().setFromObject(modelGroup);
+                const modelBounds = {
+                    min: { x: boundsBox.min.x, y: boundsBox.min.y, z: boundsBox.min.z },
+                    max: { x: boundsBox.max.x, y: boundsBox.max.y, z: boundsBox.max.z }
+                };
+
+                appState.objects.forEach(obj => {
+                    const partFromHint = classifyPartFromHint(obj.hintText);
+                    obj.buildingPart = partFromHint || classifyPartFromGeometry(obj, modelBounds);
+                    obj.partSource = partFromHint ? "metadata" : "geometry";
+                });
+
+                const selected = selectedObjectState();
+                if (selected) updateSelectedObjectPanel(selected);
+            }
+
+            function displayModel(base64Data) {
+                try {
+                    const binary = atob(base64Data);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i += 1) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    const doc = rhino.File3dm.fromByteArray(bytes);
+                    const objects = doc.objects();
+
+                    for (let i = 0; i < objects.count; i += 1) {
+                        const sourceObject = objects.get(i);
+                        const geom = sourceObject.geometry();
+                        if (geom instanceof rhino.Mesh) {
+                            addMesh(geom, "Mesh", i, sourceObject, doc);
+                        } else if (geom instanceof rhino.Brep) {
+                            const faces = geom.faces();
+                            for (let j = 0; j < faces.count; j += 1) {
+                                const m = faces.get(j).getMesh(rhino.MeshType.Render);
+                                if (m) addMesh(m, "BrepFace", i, sourceObject, doc);
+                            }
+                        }
+                    }
+
+                    classifyModelObjects();
+                    setView("perspective");
+                    updateObjectHeatmap();
+                    updateMeshLoadPanel();
+                    document.getElementById("loading").style.display = "none";
+                } catch (e) {
+                    document.getElementById("loading").textContent = `Error: ${e.message}`;
+                }
+            }
+
+            function addMesh(rhinoMesh, geomType, objectIndex, sourceObject, doc) {
+                const geo = new THREE.BufferGeometry();
+                const v = rhinoMesh.vertices();
+                const f = rhinoMesh.faces();
+                const vb = new Float32Array(v.count * 3);
+                for (let i = 0; i < v.count; i += 1) {
+                    const p = v.get(i);
+                    vb[i * 3] = p[0];
+                    vb[i * 3 + 1] = p[1];
+                    vb[i * 3 + 2] = p[2];
+                }
+
+                const idx = [];
+                for (let i = 0; i < f.count; i += 1) {
+                    const fi = f.get(i);
+                    idx.push(fi[0], fi[1], fi[2]);
+                    if (fi[2] !== fi[3]) idx.push(fi[0], fi[2], fi[3]);
+                }
+
+                geo.setAttribute("position", new THREE.BufferAttribute(vb, 3));
+                geo.setIndex(idx);
+                geo.computeVertexNormals();
+                geo.computeBoundingBox();
+
+                const bbox = geo.boundingBox;
+                const bboxSize = bbox ? bbox.getSize(new THREE.Vector3()) : new THREE.Vector3();
+                const boundingBoxText = `${bboxSize.x.toFixed(2)} x ${bboxSize.y.toFixed(2)} x ${bboxSize.z.toFixed(2)}`;
+                const surfaceArea = estimateSurfaceArea(geo).toFixed(2);
+                const centroid = bbox ? bbox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
+                const orientation = inferOrientation(geo);
+                const normal = inferAverageNormal(geo);
+                const hintText = extractMetadataHint(sourceObject, doc);
+
+                const material = new THREE.MeshLambertMaterial({
+                    color: 0xc9c2b5,
+                    side: THREE.DoubleSide
+                });
+                const mesh = new THREE.Mesh(geo, material);
+                const objectId = `${objectIndex}-${selectableMeshes.length}`;
+                mesh.userData.meta = {
+                    objectId,
+                    objectIndex,
+                    geomType,
+                    faceCount: f.count,
+                    vertexCount: v.count,
+                    boundingBox: boundingBoxText,
+                    surfaceArea: `${surfaceArea} m2`,
+                    surfaceAreaValue: Number(surfaceArea),
+                    centroid: { x: centroid.x, y: centroid.y, z: centroid.z },
+                    height: Number(bboxSize.z.toFixed(2)),
+                    orientation,
+                    normal,
+                    bboxMin: bbox ? { x: bbox.min.x, y: bbox.min.y, z: bbox.min.z } : { x: 0, y: 0, z: 0 },
+                    bboxMax: bbox ? { x: bbox.max.x, y: bbox.max.y, z: bbox.max.z } : { x: 0, y: 0, z: 0 },
+                    bboxSize: { x: bboxSize.x, y: bboxSize.y, z: bboxSize.z },
+                    hintText
+                };
+                modelGroup.add(mesh);
+                selectableMeshes.push(mesh);
+                const objectState = {
+                    ...mesh.userData.meta,
+                    program: "office",
+                    material: "concrete",
+                    constraintRisk: "low",
+                    localDepth: 200,
+                    localOffset: 0,
+                    localOpenRatio: 40,
+                    heightLocked: false,
+                    buildingPart: "unknown",
+                    partSource: hintText ? "metadata" : "geometry",
+                    mesh
+                };
+                appState.objects.set(objectId, objectState);
+                applyMeshAppearance(mesh, objectState);
+
+                const edges = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(geo),
+                    new THREE.LineBasicMaterial({ color: 0x3f3931 })
+                );
+                modelGroup.add(edges);
+
+                meshStats.renderMeshes += 1;
+                meshStats.faces += f.count;
+            }
+
+            function inferOrientation(geometry) {
+                const normals = geometry.getAttribute("normal");
+                if (!normals || normals.count === 0) return "Horizontal";
+
+                let nx = 0;
+                let ny = 0;
+                let nz = 0;
+                for (let i = 0; i < normals.count; i += 1) {
+                    nx += normals.getX(i);
+                    ny += normals.getY(i);
+                    nz += normals.getZ(i);
+                }
+
+                const ax = Math.abs(nx);
+                const ay = Math.abs(ny);
+                const az = Math.abs(nz);
+                if (az > ax && az > ay) return "Horizontal";
+                if (ax >= ay) return nx >= 0 ? "East" : "West";
+                return ny >= 0 ? "North" : "South";
+            }
+
+            function estimateSurfaceArea(geometry) {
+                const positions = geometry.getAttribute("position");
+                const index = geometry.getIndex();
+                const a = new THREE.Vector3();
+                const b = new THREE.Vector3();
+                const c = new THREE.Vector3();
+                let area = 0;
+
+                if (!positions || !index) return area;
+
+                for (let i = 0; i < index.count; i += 3) {
+                    a.fromBufferAttribute(positions, index.getX(i));
+                    b.fromBufferAttribute(positions, index.getX(i + 1));
+                    c.fromBufferAttribute(positions, index.getX(i + 2));
+                    area += triangleArea(a, b, c);
+                }
+
+                return area;
+            }
+
+            function triangleArea(a, b, c) {
+                const ab = new THREE.Vector3().subVectors(b, a);
+                const ac = new THREE.Vector3().subVectors(c, a);
+                return ab.cross(ac).length() * 0.5;
+            }
+
+            function updateMeshLoadPanel() {
+                document.getElementById("mesh-count").textContent = String(meshStats.renderMeshes);
+                document.getElementById("mesh-faces").textContent = String(meshStats.faces);
+
+                let load = "Low";
+                let statusClass = "status-ok";
+                let statusText = "Stable";
+                if (meshStats.faces > 50000 || meshStats.renderMeshes > 120) {
+                    load = "High";
+                    statusClass = "status-bad";
+                    statusText = "Heavy";
+                } else if (meshStats.faces > 15000 || meshStats.renderMeshes > 45) {
+                    load = "Medium";
+                    statusClass = "status-warn";
+                    statusText = "Watch";
+                }
+
+                document.getElementById("mesh-load").textContent = load;
+                const statusEl = document.getElementById("mesh-status");
+                statusEl.textContent = statusText;
+                statusEl.className = statusClass;
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+        </script>
+    </body>
+    </html>
+    """
+    RHINO_VIEWER_HTML = RHINO_VIEWER_HTML.replace("__DATA64__", data_64)
+
+    display(HTML(RHINO_VIEWER_HTML))
+else:
+    print(f"Download failed: {response.status_code}")
