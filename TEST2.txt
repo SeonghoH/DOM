@@ -787,6 +787,46 @@ if response.status_code == 200:
                     transform: translateY(0);
                 }
             }
+
+            /* Panel toggle button */
+            .panel-toggle-btn {
+                background: none;
+                border: 1px solid #d9d0c2;
+                border-radius: 4px;
+                padding: 1px 7px;
+                font-size: 11px;
+                font-weight: 700;
+                line-height: 1.4;
+                cursor: pointer;
+                color: var(--muted);
+                font-family: Consolas, monospace;
+                flex-shrink: 0;
+                min-width: 20px;
+                text-align: center;
+                transition: background 0.15s, color 0.15s, border-color 0.15s;
+            }
+
+            .panel-toggle-btn:hover {
+                background: rgba(143, 91, 45, 0.1);
+                color: var(--accent);
+                border-color: var(--accent);
+            }
+
+            /* Collapsed state: hide all siblings of section-title */
+            .panel-collapsed > *:not(.section-title) {
+                display: none !important;
+            }
+
+            .panel-collapsed {
+                min-height: 0 !important;
+                resize: none !important;
+            }
+
+            /* Collapsed indicator on header */
+            .panel-collapsed .section-title {
+                margin-bottom: 0;
+                opacity: 0.72;
+            }
         </style>
     </head>
     <body>
@@ -2465,6 +2505,7 @@ if response.status_code == 200:
                 updateParametricPanel();
                 updateMeshLoadPanel();
                 fetchWeather("Seoul", document.querySelector(".city-btn"));
+                initPanelToggles();
             });
 
             function initPreview() {
@@ -2889,6 +2930,32 @@ if response.status_code == 200:
                 const statusEl = document.getElementById("mesh-status");
                 statusEl.textContent = statusText;
                 statusEl.className = statusClass;
+            }
+
+            function initPanelToggles() {
+                const containers = [
+                    ...document.querySelectorAll(".sub-card"),
+                    document.getElementById("env-panel"),
+                    ...document.querySelectorAll(".mini-card")
+                ];
+
+                containers.forEach(container => {
+                    if (!container) return;
+                    const titleEl = container.querySelector(":scope > .section-title");
+                    if (!titleEl) return;
+
+                    const btn = document.createElement("button");
+                    btn.className = "panel-toggle-btn";
+                    btn.textContent = "−";
+                    btn.title = "패널 접기 / 펼치기";
+                    titleEl.appendChild(btn);
+
+                    btn.addEventListener("click", event => {
+                        event.stopPropagation();
+                        const collapsed = container.classList.toggle("panel-collapsed");
+                        btn.textContent = collapsed ? "+" : "−";
+                    });
+                });
             }
 
             function animate() {
